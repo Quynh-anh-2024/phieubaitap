@@ -204,7 +204,7 @@ function App() {
                          <div className="inline-block p-6 bg-white rounded-full shadow-lg border border-teal-50 mb-6">
                             <SparklesLoading />
                          </div>
-                         <h3 className="text-xl font-semibold text-slate-800">Đang soạn giáo án...</h3>
+                         <h3 className="text-xl font-semibold text-slate-800">Đang tạo phiếu học tập...</h3>
                          <p className="mt-2 text-slate-500">Vui lòng đợi trong giây lát</p>
                     </div>
                 ) : (

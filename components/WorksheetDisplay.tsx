@@ -1,5 +1,7 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
 import { Copy, Download, RefreshCcw, CheckCircle, FileText } from 'lucide-react';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, PageBreak, AlignmentType } from 'docx';
 import FileSaver from 'file-saver';
@@ -15,6 +17,22 @@ const WorksheetDisplay: React.FC<WorksheetDisplayProps> = ({ content, onReset })
     alert('Đã sao chép nội dung vào bộ nhớ đệm!');
   };
 
+  /**
+   * Cleans LaTeX strings for plain text/Word readability
+   */
+  const cleanLatex = (text: string): string => {
+    return text
+      .replace(/\$([^$]+)\$/g, '$1') // Remove $ symbols
+      .replace(/\\text\{([^}]+)\}/g, '$1') // Remove \text{}
+      .replace(/\\times/g, ' × ')
+      .replace(/\\div/g, ' ÷ ')
+      .replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, ' $1/$2 ') // Simple fraction fallback
+      .replace(/\^\{?([^}]+)\}?/g, '$1') // Power to plain text (simple)
+      .replace(/\\dots/g, '...')
+      .replace(/\\quad/g, '  ')
+      .replace(/\\, /g, ' ');
+  };
+
   const parseMarkdownToDocxParagraphs = (text: string): Paragraph[] => {
     const lines = text.split('\n');
     const paragraphs: Paragraph[] = [];
@@ -24,9 +42,8 @@ const WorksheetDisplay: React.FC<WorksheetDisplayProps> = ({ content, onReset })
     const FONT_FAMILY = "Times New Roman";
 
     lines.forEach((line) => {
-      const trimmedLine = line.trim();
+      let trimmedLine = line.trim();
       if (!trimmedLine) {
-        // Empty line
         paragraphs.push(new Paragraph({ text: "", spacing: { after: 100 } }));
         return;
       }
@@ -35,13 +52,13 @@ const WorksheetDisplay: React.FC<WorksheetDisplayProps> = ({ content, onReset })
       if (trimmedLine.startsWith('# ')) {
         paragraphs.push(
           new Paragraph({
-            text: trimmedLine.replace('# ', '').toUpperCase(),
+            text: cleanLatex(trimmedLine.replace('# ', '').toUpperCase()),
             heading: HeadingLevel.HEADING_1,
             alignment: AlignmentType.CENTER,
             spacing: { before: 240, after: 240 },
             run: {
               font: FONT_FAMILY,
-              size: STANDARD_FONT_SIZE, // 13pt
+              size: STANDARD_FONT_SIZE,
               bold: true,
             },
           })
@@ -49,7 +66,7 @@ const WorksheetDisplay: React.FC<WorksheetDisplayProps> = ({ content, onReset })
         return;
       }
 
-      // Heading 2 (##) - Check for Answers section to add PageBreak
+      // Heading 2 (##)
       if (trimmedLine.startsWith('## ')) {
         const headingText = trimmedLine.replace('## ', '');
         const isAnswerSection = headingText.toUpperCase().includes('ĐÁP ÁN') || headingText.toUpperCase().includes('PHẦN 2');
@@ -60,7 +77,7 @@ const WorksheetDisplay: React.FC<WorksheetDisplayProps> = ({ content, onReset })
 
         paragraphs.push(
           new Paragraph({
-            text: headingText,
+            text: cleanLatex(headingText),
             heading: HeadingLevel.HEADING_2,
             alignment: AlignmentType.LEFT,
             spacing: { before: 240, after: 120 },
@@ -78,7 +95,7 @@ const WorksheetDisplay: React.FC<WorksheetDisplayProps> = ({ content, onReset })
       if (trimmedLine.startsWith('### ')) {
         paragraphs.push(
           new Paragraph({
-            text: trimmedLine.replace('### ', ''),
+            text: cleanLatex(trimmedLine.replace('### ', '')),
             heading: HeadingLevel.HEADING_3,
             alignment: AlignmentType.LEFT,
             spacing: { before: 120, after: 120 },
@@ -95,13 +112,12 @@ const WorksheetDisplay: React.FC<WorksheetDisplayProps> = ({ content, onReset })
 
       // Bullet points (* )
       if (trimmedLine.startsWith('* ')) {
-        // Handle bolding inside bullet points
-        const textContent = trimmedLine.replace('* ', '');
+        const textContent = cleanLatex(trimmedLine.replace('* ', ''));
         const parts = textContent.split('**');
         const children = parts.map((part, index) => {
             return new TextRun({
                 text: part,
-                bold: index % 2 !== 0, // Odd indices are inside ** **
+                bold: index % 2 !== 0,
                 font: FONT_FAMILY,
                 size: STANDARD_FONT_SIZE,
             });
@@ -117,8 +133,9 @@ const WorksheetDisplay: React.FC<WorksheetDisplayProps> = ({ content, onReset })
         return;
       }
 
-      // Regular paragraph (handle bolding)
-      const parts = trimmedLine.split('**');
+      // Regular paragraph
+      const cleanLine = cleanLatex(trimmedLine);
+      const parts = cleanLine.split('**');
       const children = parts.map((part, index) => {
           return new TextRun({
               text: part,
@@ -131,8 +148,8 @@ const WorksheetDisplay: React.FC<WorksheetDisplayProps> = ({ content, onReset })
       paragraphs.push(
         new Paragraph({
           children: children,
-          alignment: AlignmentType.JUSTIFIED, // Decree 30 usually requires justified text
-          spacing: { after: 120, line: 276 }, // 1.2 line spacing approx
+          alignment: AlignmentType.JUSTIFIED,
+          spacing: { after: 120, line: 276 },
         })
       );
     });
@@ -142,12 +159,6 @@ const WorksheetDisplay: React.FC<WorksheetDisplayProps> = ({ content, onReset })
 
   const handleDownloadWord = async () => {
     const docParagraphs = parseMarkdownToDocxParagraphs(content);
-
-    // Decree 30 Margins: Top 20-25mm, Bottom 20-25mm, Left 30-35mm, Right 15-20mm
-    // Converting mm to twips (1440 twips = 1 inch = 25.4mm)
-    // Left: 30mm ~= 1700 twips
-    // Right: 20mm ~= 1134 twips
-    // Top/Bottom: 20mm ~= 1134 twips
     
     const doc = new Document({
       styles: {
@@ -157,10 +168,10 @@ const WorksheetDisplay: React.FC<WorksheetDisplayProps> = ({ content, onReset })
                 name: "Normal",
                 run: {
                     font: "Times New Roman",
-                    size: 26, // 13pt
+                    size: 26, 
                 },
                 paragraph: {
-                    spacing: { line: 276, before: 0, after: 0 }, // 1.15 line spacing
+                    spacing: { line: 276, before: 0, after: 0 }, 
                 },
             },
         ],
@@ -183,9 +194,6 @@ const WorksheetDisplay: React.FC<WorksheetDisplayProps> = ({ content, onReset })
     });
 
     const blob = await Packer.toBlob(doc);
-    
-    // Handle FileSaver import differences between environments
-    // Some ESM builds export saveAs as named, some as default function, some as default object
     const saveAs = (FileSaver as any).saveAs || FileSaver;
     saveAs(blob, "PhieuBaiTap.docx");
   };
@@ -235,7 +243,12 @@ const WorksheetDisplay: React.FC<WorksheetDisplayProps> = ({ content, onReset })
             prose-li:text-slate-700 prose-li:my-1
             prose-strong:text-slate-900 prose-strong:font-bold
             marker:text-teal-500">
-          <ReactMarkdown>{content}</ReactMarkdown>
+          <ReactMarkdown 
+            remarkPlugins={[remarkMath]} 
+            rehypePlugins={[rehypeKatex]}
+          >
+            {content}
+          </ReactMarkdown>
         </article>
       </div>
       
