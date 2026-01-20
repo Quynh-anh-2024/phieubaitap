@@ -6,7 +6,7 @@
     <title>Trợ Lý Học Tập Tiểu Học</title>
     
     <!-- PWA Meta Tags -->
-    <meta name="theme-color" content="#0d9488" />
+    <meta name="theme-color" content="#20c997" />
     <meta name="description" content="Hỗ trợ giáo viên tiểu học tạo phiếu bài tập chuẩn chương trình GDPT 2018" />
     <link rel="manifest" href="/manifest.json" />
     
@@ -17,30 +17,78 @@
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3429/3429149.png" />
     
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- Import Baloo 2 and Quicksand -->
+    <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;500;600;700;800&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
     <style>
+      :root {
+        --primary-teal: #20c997;
+        --accent-yellow: #ffc107;
+        --color-grade-1: #84cc16; /* Lime */
+        --color-grade-2: #eab308; /* Yellow */
+        --color-grade-3: #f97316; /* Orange */
+        --color-grade-4: #3b82f6; /* Blue */
+        --color-grade-5: #a855f7; /* Purple */
+      }
+
       body {
-        font-family: 'Nunito', sans-serif;
+        font-family: 'Quicksand', sans-serif;
+        background-color: #fdfbf7;
+        /* Polka dot pattern */
+        background-image: radial-gradient(#e5e7eb 2px, transparent 2px);
+        background-size: 24px 24px;
+        color: #334155;
         -webkit-tap-highlight-color: transparent;
       }
-      /* Custom scrollbar for better aesthetics */
+
+      h1, h2, h3, h4, h5, h6, button, .font-display {
+        font-family: 'Baloo 2', cursive;
+      }
+
+      /* Glassmorphism Effect */
+      .glass-panel {
+        background: rgba(255, 255, 255, 0.75);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.6);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+        border-radius: 24px;
+      }
+
+      /* Custom scrollbar */
       ::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
+        width: 10px;
+        height: 10px;
       }
       ::-webkit-scrollbar-track {
-        background: #f1f1f1; 
+        background: transparent; 
       }
       ::-webkit-scrollbar-thumb {
-        background: #888; 
-        border-radius: 4px;
+        background: #cbd5e1; 
+        border-radius: 99px;
+        border: 2px solid #fdfbf7;
       }
       ::-webkit-scrollbar-thumb:hover {
-        background: #555; 
+        background: #94a3b8; 
       }
       
-      /* Ensure standalone mode feels native */
+      /* Animations */
+      @keyframes float {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-10px); }
+      }
+      .animate-float {
+        animation: float 6s ease-in-out infinite;
+      }
+
+      @keyframes pulse-soft {
+        0%, 100% { transform: scale(1); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+        50% { transform: scale(1.02); box-shadow: 0 10px 15px -3px rgba(32, 201, 151, 0.3); }
+      }
+      .animate-pulse-action {
+        animation: pulse-soft 2s infinite;
+      }
+
       @media (display-mode: standalone) {
         body {
           user-select: none;
@@ -64,7 +112,7 @@
 }
 </script>
 </head>
-  <body class="bg-slate-50 text-slate-900">
+  <body>
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
     <script>
