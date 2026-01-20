@@ -88,15 +88,15 @@ function App() {
         <div className="absolute top-0 right-0 w-96 h-96 bg-blue-100 rounded-full mix-blend-multiply filter blur-3xl opacity-40 animate-blob animation-delay-2000"></div>
         <div className="absolute -bottom-32 left-1/3 w-96 h-96 bg-emerald-100 rounded-full mix-blend-multiply filter blur-3xl opacity-40 animate-blob animation-delay-4000"></div>
 
-      <div className="container mx-auto px-4 py-8 relative z-10">
-        <header className="text-center mb-10">
+      <div className="container mx-auto px-4 py-6 md:py-8 relative z-10">
+        <header className="text-center mb-6 md:mb-10">
           <div className="inline-flex items-center justify-center p-3 bg-white rounded-2xl shadow-sm mb-4 border border-teal-100">
              <BookOpenCheck className="w-8 h-8 text-teal-600" />
           </div>
-          <h1 className="text-3xl md:text-5xl font-extrabold text-slate-800 mb-3 tracking-tight">
+          <h1 className="text-2xl md:text-5xl font-extrabold text-slate-800 mb-3 tracking-tight">
             Trợ Lý Học Tập <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-emerald-600">Tiểu Học</span>
           </h1>
-          <p className="text-base md:text-lg text-slate-600 max-w-2xl mx-auto leading-relaxed mb-6">
+          <p className="text-sm md:text-lg text-slate-600 max-w-2xl mx-auto leading-relaxed mb-6">
             Hỗ trợ giáo viên và phụ huynh tạo phiếu bài tập chuẩn chương trình GDPT 2018 <br className="hidden md:block" />
             <span className="font-semibold text-teal-700">Trường PTDTBT Tiểu học Giàng Chu Phìn</span>.
           </p>
@@ -115,19 +115,19 @@ function App() {
                 <label className="block text-sm font-bold text-slate-700 mb-2 text-left">
                   Nhập Google Gemini API Key
                 </label>
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <input 
                     type="password" 
                     value={apiKey}
                     onChange={(e) => setApiKey(e.target.value)}
                     placeholder="Paste key vào đây (bắt đầu bằng AIza...)"
-                    className="flex-1 p-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none"
+                    className="flex-1 p-3 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none"
                     disabled={isCheckingKey}
                   />
                   <button 
                     onClick={handleSaveApiKey}
                     disabled={isCheckingKey || !apiKey}
-                    className={`text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 min-w-[140px] justify-center transition-all ${
+                    className={`text-white px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-2 justify-center transition-all ${
                         isCheckingKey || !apiKey 
                         ? 'bg-slate-400 cursor-not-allowed' 
                         : 'bg-teal-600 hover:bg-teal-700'
@@ -139,16 +139,16 @@ function App() {
                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
-                            Kiểm tra...
+                            Kiểm tra
                         </>
                     ) : (
                         <>
-                            <CheckCircle2 className="w-4 h-4" /> Kiểm tra & Lưu
+                            <CheckCircle2 className="w-4 h-4" /> Lưu Key
                         </>
                     )}
                   </button>
                 </div>
-                <div className="text-left mt-2 text-xs text-slate-500 flex items-center gap-1">
+                <div className="text-left mt-2 text-xs text-slate-500 flex items-center gap-1 flex-wrap">
                    Chưa có Key? 
                    <a 
                      href="https://aistudio.google.com/app/apikey" 
@@ -167,28 +167,28 @@ function App() {
         <main className="max-w-4xl mx-auto">
           {error && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl shadow-sm flex items-center justify-between animate-fade-in">
-              <span className="flex items-center gap-2"><AlertCircle className="w-5 h-5"/> {error}</span>
+              <span className="flex items-center gap-2 text-sm"><AlertCircle className="w-5 h-5 flex-shrink-0"/> {error}</span>
               <button onClick={() => setError(null)} className="text-red-500 hover:text-red-700 font-bold px-2">✕</button>
             </div>
           )}
 
           {!worksheetContent && !isLoading && !error && (
-            <div className="animate-fade-in space-y-12">
+            <div className="animate-fade-in space-y-8 md:space-y-12">
                  <WorksheetForm onSubmit={handleGenerate} isLoading={isLoading} />
                  
                  {/* Quick Tips Section */}
-                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+                    <div className="bg-white p-5 md:p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
                         <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center text-2xl mb-4 text-blue-500">📚</div>
                         <h3 className="font-bold text-slate-800 text-lg mb-2">Bám Sát SGK</h3>
                         <p className="text-sm text-slate-600 leading-relaxed">Nội dung được trích xuất chuẩn xác từ bộ sách "Kết nối tri thức với cuộc sống".</p>
                     </div>
-                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="bg-white p-5 md:p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
                         <div className="w-12 h-12 bg-emerald-50 rounded-full flex items-center justify-center text-2xl mb-4 text-emerald-500">📊</div>
                         <h3 className="font-bold text-slate-800 text-lg mb-2">Chuẩn Ma Trận</h3>
                         <p className="text-sm text-slate-600 leading-relaxed">Cấu trúc đề theo Thông tư 27: 40% Biết - 30% Hiểu - 30% Vận dụng.</p>
                     </div>
-                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="bg-white p-5 md:p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
                         <div className="w-12 h-12 bg-amber-50 rounded-full flex items-center justify-center text-2xl mb-4 text-amber-500">⚡</div>
                         <h3 className="font-bold text-slate-800 text-lg mb-2">Tạo Nhanh Chóng</h3>
                         <p className="text-sm text-slate-600 leading-relaxed">Chỉ cần nhập tên bài, hệ thống sẽ tự động soạn đề trong vài giây.</p>
@@ -214,7 +214,7 @@ function App() {
           )}
         </main>
 
-        <footer className="text-center mt-20 pb-8 text-slate-400 text-xs font-medium tracking-wide">
+        <footer className="text-center mt-12 md:mt-20 pb-8 text-slate-400 text-xs font-medium tracking-wide">
           <p>© {new Date().getFullYear()} LƯU HÀNH NỘI BỘ</p>
         </footer>
       </div>
