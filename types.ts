@@ -7,11 +7,11 @@ export enum GradeLevel {
 }
 
 export const SUBJECTS_BY_GRADE: Record<GradeLevel, string[]> = {
-  [GradeLevel.GRADE_1]: ['Toán', 'Tiếng Việt'],
-  [GradeLevel.GRADE_2]: ['Toán', 'Tiếng Việt'],
-  [GradeLevel.GRADE_3]: ['Toán', 'Tiếng Việt', 'Công nghệ', 'Tin học'],
-  [GradeLevel.GRADE_4]: ['Toán', 'Tiếng Việt', 'Công nghệ', 'Tin học', 'Khoa học', 'Lịch sử và Địa lý'],
-  [GradeLevel.GRADE_5]: ['Toán', 'Tiếng Việt', 'Công nghệ', 'Tin học', 'Khoa học', 'Lịch sử và Địa lý'],
+  [GradeLevel.GRADE_1]: ['Toán', 'Tiếng Việt', 'Tự nhiên và Xã hội', 'Đạo đức'],
+  [GradeLevel.GRADE_2]: ['Toán', 'Tiếng Việt', 'Tự nhiên và Xã hội', 'Đạo đức'],
+  [GradeLevel.GRADE_3]: ['Toán', 'Tiếng Việt', 'Tự nhiên và Xã hội', 'Đạo đức', 'Công nghệ', 'Tin học'],
+  [GradeLevel.GRADE_4]: ['Toán', 'Tiếng Việt', 'Đạo đức', 'Công nghệ', 'Tin học', 'Khoa học', 'Lịch sử và Địa lý'],
+  [GradeLevel.GRADE_5]: ['Toán', 'Tiếng Việt', 'Đạo đức', 'Công nghệ', 'Tin học', 'Khoa học', 'Lịch sử và Địa lý'],
 };
 
 export type ExerciseType = 'general' | 'reading';

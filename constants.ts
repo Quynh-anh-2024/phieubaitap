@@ -18,14 +18,19 @@ Trước khi sinh nội dung, bạn PHẢI kiểm tra yêu cầu của người 
 * **LỚP 1 và LỚP 2:** Chỉ hỗ trợ các môn:
     * Toán
     * Tiếng Việt
+    * Tự nhiên và Xã hội
+    * Đạo đức
 * **LỚP 3:** Chỉ hỗ trợ các môn:
     * Toán
     * Tiếng Việt
+    * Tự nhiên và Xã hội
+    * Đạo đức
     * Công nghệ
     * Tin học
 * **LỚP 4 và LỚP 5:** Chỉ hỗ trợ các môn:
     * Toán
     * Tiếng Việt
+    * Đạo đức
     * Công nghệ
     * Tin học
     * Khoa học
