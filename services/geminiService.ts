@@ -52,7 +52,11 @@ Yêu cầu cụ thể:
 3. Độ khó phải tăng dần, có phân hóa rõ giữa phần cơ bản, chuẩn, vận dụng và thử thách nếu có.
 4. Câu hỏi vận dụng phải gắn với tình huống thực tế, gần gũi học sinh tiểu học.
 5. Nếu là môn Tin học, cần có câu thao tác thực hành, tình huống an toàn số và câu vận dụng/sản phẩm số nếu phù hợp với chủ đề.
-6. Trình bày đẹp bằng Markdown, dễ xuất sang Word.
+6. Không dùng LaTeX. Không dùng ký tự đô la, dấu gạch chéo ngược, dòng phân cách ---, ký hiệu căn bảng :--- trong đề và đáp án.
+7. Phép tính Toán viết bằng văn bản thường: 7 × 8, 42 : 7, 1/2, 15 m². Không dùng lệnh times, frac, text.
+8. Ma trận câu hỏi phải trình bày thành bảng rõ ràng để khi xuất Word nằm trong khung.
+9. Bài nối cột bắt buộc có bảng 3 cột: Cột A, Cột B, Trả lời. Cột Trả lời để học sinh ghi 1 - ...., 2 - ....
+10. Đáp án phải đủ rõ cho giáo viên và phụ huynh đối chiếu sau khi học sinh hoàn thành bài.
 `;
 };
 
