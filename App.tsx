@@ -180,17 +180,17 @@ function App() {
                     <div className="glass-panel p-6 hover:-translate-y-2 transition-transform duration-300">
                         <div className="w-14 h-14 bg-blue-100 rounded-2xl flex items-center justify-center text-3xl mb-4 text-blue-500 shadow-sm transform -rotate-3">📚</div>
                         <h3 className="font-bold text-slate-800 text-xl mb-2 font-display">Bám Sát SGK</h3>
-                        <p className="text-sm text-slate-600 leading-relaxed font-medium">Nội dung chuẩn xác từ bộ sách "Kết nối tri thức".</p>
+                        <p className="text-sm text-slate-600 leading-relaxed font-medium">Bám sát lớp, môn học và bài/chủ đề giáo viên nhập.</p>
                     </div>
                     <div className="glass-panel p-6 hover:-translate-y-2 transition-transform duration-300">
                         <div className="w-14 h-14 bg-emerald-100 rounded-2xl flex items-center justify-center text-3xl mb-4 text-emerald-500 shadow-sm transform rotate-3">📊</div>
-                        <h3 className="font-bold text-slate-800 text-xl mb-2 font-display">Chuẩn Ma Trận</h3>
-                        <p className="text-sm text-slate-600 leading-relaxed font-medium">Theo Thông tư 27: 40% Biết - 30% Hiểu - 30% Vận dụng.</p>
+                        <h3 className="font-bold text-slate-800 text-xl mb-2 font-display">Ma Trận Phân Hóa</h3>
+                        <p className="text-sm text-slate-600 leading-relaxed font-medium">Gợi ý tỉ lệ câu hỏi theo mức độ: cơ bản, chuẩn, vận dụng, thử thách.</p>
                     </div>
                     <div className="glass-panel p-6 hover:-translate-y-2 transition-transform duration-300">
                         <div className="w-14 h-14 bg-amber-100 rounded-2xl flex items-center justify-center text-3xl mb-4 text-amber-500 shadow-sm transform -rotate-2">⚡</div>
                         <h3 className="font-bold text-slate-800 text-xl mb-2 font-display">Tạo Siêu Tốc</h3>
-                        <p className="text-sm text-slate-600 leading-relaxed font-medium">Nhập tên bài, có ngay phiếu bài tập trong 5 giây.</p>
+                        <p className="text-sm text-slate-600 leading-relaxed font-medium">Tùy chọn loại phiếu, mức độ, dạng bài và đáp án trước khi tạo.</p>
                     </div>
                  </div>
             </div>
@@ -203,8 +203,8 @@ function App() {
                          <div className="inline-block p-6 bg-white rounded-full shadow-lg border-4 border-teal-50 mb-6">
                             <SparklesLoading />
                          </div>
-                         <h3 className="text-2xl font-bold text-slate-800 font-display">Đang biên soạn phiếu bài tập...</h3>
-                         <p className="mt-2 text-slate-500 font-medium">Thầy/Cô đợi một chút nhé!</p>
+                         <h3 className="text-2xl font-bold text-slate-800 font-display">Đang biên soạn phiếu bài tập phân hóa...</h3>
+                         <p className="mt-2 text-slate-500 font-medium">AI đang sắp xếp dạng bài, mức độ và đáp án.</p>
                     </div>
                 ) : (
                     <WorksheetDisplay content={worksheetContent} onReset={handleReset} />
