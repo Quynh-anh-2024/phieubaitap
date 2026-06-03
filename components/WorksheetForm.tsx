@@ -12,6 +12,8 @@ import {
   DIFFICULTY_OPTIONS,
   STUDENT_TARGET_OPTIONS,
   ANSWER_MODE_OPTIONS,
+  READING_SOURCE_OPTIONS,
+  ReadingSource,
   OptionItem,
 } from '../types';
 import { BookOpen, ClipboardList, GraduationCap, Layers, PenTool, Settings2, Sparkles } from 'lucide-react';
@@ -177,12 +179,20 @@ const WorksheetForm: React.FC<WorksheetFormProps> = ({ onSubmit, isLoading }) =>
   const [includeTeacherGuide, setIncludeTeacherGuide] = useState<boolean>(true);
   const [includeSelfAssessment, setIncludeSelfAssessment] = useState<boolean>(true);
   const [includeLocalContext, setIncludeLocalContext] = useState<boolean>(false);
+  const [readingSource, setReadingSource] = useState<ReadingSource>('auto_new');
+  const [readingText, setReadingText] = useState<string>('');
+  const [readingSourceNote, setReadingSourceNote] = useState<string>('');
+  const [readingBookGrade, setReadingBookGrade] = useState<string>(GradeLevel.GRADE_3);
+  const [readingBookYear, setReadingBookYear] = useState<string>('');
+  const [readingBookTitle, setReadingBookTitle] = useState<string>('');
+  const [readingLessonTitle, setReadingLessonTitle] = useState<string>('');
 
   const preferredFormats = FORMAT_PRESET_MAP[formatPreset];
   const availableSubjects = SUBJECTS_BY_GRADE[grade];
   const availableExerciseTypes = EXERCISE_TYPE_OPTIONS.filter(
     (option) => option.value !== 'reading' || subject === 'Tiếng Việt'
   );
+  const isVietnamese = subject === 'Tiếng Việt';
 
   useEffect(() => {
     if (!availableSubjects.includes(subject)) {
@@ -195,6 +205,24 @@ const WorksheetForm: React.FC<WorksheetFormProps> = ({ onSubmit, isLoading }) =>
       setExerciseType('weekly_practice');
     }
   }, [subject, exerciseType]);
+
+  useEffect(() => {
+    if (subject !== 'Tiếng Việt') {
+      setReadingSource('auto_new');
+      setReadingText('');
+      setReadingSourceNote('');
+      setReadingBookGrade(String(grade));
+      setReadingBookYear('');
+      setReadingBookTitle('');
+      setReadingLessonTitle('');
+    }
+  }, [subject, grade]);
+
+  useEffect(() => {
+    if (subject === 'Tiếng Việt' && !readingBookGrade) {
+      setReadingBookGrade(String(grade));
+    }
+  }, [subject, grade, readingBookGrade]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -215,6 +243,18 @@ const WorksheetForm: React.FC<WorksheetFormProps> = ({ onSubmit, isLoading }) =>
       includeTeacherGuide,
       includeSelfAssessment,
       includeLocalContext,
+      readingSource: isVietnamese ? readingSource : undefined,
+      readingText: isVietnamese ? readingText.trim() : '',
+      readingSourceNote: isVietnamese ? readingSourceNote.trim() : '',
+      readingBookGrade: isVietnamese ? readingBookGrade.trim() : '',
+      readingBookYear: isVietnamese ? readingBookYear.trim() : '',
+      readingBookTitle: isVietnamese ? readingBookTitle.trim() : '',
+      readingLessonTitle: isVietnamese ? readingLessonTitle.trim() : '',
+      readingCitationLine:
+        isVietnamese && readingSource === 'verified_textbook_excerpt' && readingBookGrade.trim() && readingBookYear.trim()
+          ? `Trích từ SGK Tiếng Việt lớp ${readingBookGrade.trim()}, năm ${readingBookYear.trim()}`
+          : '',
+      lockReadingSource: isVietnamese,
     });
   };
 
@@ -230,6 +270,10 @@ const WorksheetForm: React.FC<WorksheetFormProps> = ({ onSubmit, isLoading }) =>
     { label: 'Số câu', value: `${questionCount} câu` },
     { label: 'Dạng bài', value: getOptionLabel(FORMAT_PRESET_OPTIONS, formatPreset) },
     { label: 'Đáp án', value: getOptionLabel(ANSWER_MODE_OPTIONS, answerMode) },
+    ...(isVietnamese ? [{ label: 'Nguồn đọc hiểu', value: getOptionLabel(READING_SOURCE_OPTIONS, readingSource) }] : []),
+    ...(isVietnamese && readingSource === 'verified_textbook_excerpt'
+      ? [{ label: 'Trích nguồn', value: readingBookYear ? `SGK lớp ${readingBookGrade}, năm ${readingBookYear}` : 'Chưa điền năm xuất bản' }]
+      : []),
   ];
 
   const advancedOptions = [
@@ -270,7 +314,12 @@ const WorksheetForm: React.FC<WorksheetFormProps> = ({ onSubmit, isLoading }) =>
             <SelectField
               label="Khối lớp"
               value={grade}
-              onChange={setGrade}
+              onChange={(value) => {
+                setGrade(value);
+                if (subject === 'Tiếng Việt') {
+                  setReadingBookGrade(String(value));
+                }
+              }}
               options={gradeOptions}
               icon={<GraduationCap className="w-4 h-4 text-teal-500" />}
             />
@@ -297,6 +346,123 @@ const WorksheetForm: React.FC<WorksheetFormProps> = ({ onSubmit, isLoading }) =>
               required
             />
           </label>
+
+          {isVietnamese && (
+            <div className="mt-4 rounded-3xl border-2 border-amber-100 bg-amber-50/70 p-4">
+              <div className="mb-3">
+                <p className="text-sm font-black uppercase tracking-wide text-amber-800">Nguồn ngữ liệu đọc hiểu Tiếng Việt</p>
+                <p className="mt-1 text-xs leading-relaxed text-amber-700">
+                  Khóa chuẩn dữ liệu: bài đọc có thể theo phong cách cũ, dân gian hoặc do giáo viên dán vào; phần kiến thức và câu hỏi vẫn bám Kết nối tri thức hiện hành.
+                </p>
+              </div>
+              <SelectField
+                label="Nguồn bài đọc hiểu"
+                value={readingSource}
+                onChange={setReadingSource}
+                options={READING_SOURCE_OPTIONS}
+                hint={getOptionDescription(READING_SOURCE_OPTIONS, readingSource)}
+              />
+
+              {(readingSource === 'teacher_provided' || readingSource === 'verified_textbook_excerpt') && (
+                <div className="mt-4 space-y-4">
+                  <label className="block">
+                    <span className="flex items-center gap-2 text-sm font-extrabold text-slate-700 uppercase tracking-wide mb-2">
+                      {readingSource === 'verified_textbook_excerpt' ? 'Bài đọc trích từ SGK đã kiểm duyệt' : 'Bài đọc đã kiểm duyệt'}
+                    </span>
+                    <textarea
+                      value={readingText}
+                      onChange={(e) => setReadingText(e.target.value)}
+                      placeholder={
+                        readingSource === 'verified_textbook_excerpt'
+                          ? 'Dán nguyên văn bài đọc SGK cũ đã kiểm duyệt tại đây. App sẽ ghi dòng trích nguồn bên dưới bài đọc...'
+                          : 'Dán bài đọc tại đây. App sẽ dùng đúng văn bản này để tạo câu hỏi đọc hiểu, luyện từ và câu, viết...'
+                      }
+                      required={readingSource === 'verified_textbook_excerpt'}
+                      className="w-full min-h-[150px] px-4 py-3 bg-white border-2 border-slate-200 rounded-2xl focus:ring-4 focus:ring-amber-100 focus:border-amber-400 outline-none transition-all placeholder:text-slate-400 text-base shadow-inner font-medium"
+                    />
+                    <p className="mt-1.5 text-xs leading-relaxed text-slate-500">
+                      {readingSource === 'verified_textbook_excerpt'
+                        ? 'Chỉ dùng lựa chọn này khi thầy đã có văn bản và thông tin SGK lớp/năm xuất bản. Nếu không có đủ nguồn, chọn “Phong cách SGK cũ trước 2006”.'
+                        : 'Nên dán văn bản thầy đã kiểm tra nguồn và phù hợp lớp học. Nếu để trống, app sẽ tự tạo văn bản mới, không sao chép nguyên văn từ internet.'}
+                    </p>
+                  </label>
+
+                  {readingSource === 'verified_textbook_excerpt' && (
+                    <div className="rounded-2xl border-2 border-amber-200 bg-white/80 p-4">
+                      <p className="text-sm font-black uppercase tracking-wide text-amber-800 mb-3">
+                        Thông tin trích nguồn hiển thị dưới bài đọc
+                      </p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <SelectField
+                          label="SGK lớp"
+                          value={readingBookGrade}
+                          onChange={setReadingBookGrade}
+                          options={Object.values(GradeLevel).map((item) => ({ value: String(item), label: `SGK Tiếng Việt lớp ${item}` }))}
+                          hint="Dùng để tạo dòng: Trích từ SGK Tiếng Việt lớp..., năm..."
+                        />
+                        <label className="block">
+                          <span className="flex items-center gap-2 text-sm font-extrabold text-slate-700 uppercase tracking-wide mb-2">
+                            Năm xuất bản
+                          </span>
+                          <input
+                            type="text"
+                            value={readingBookYear}
+                            onChange={(e) => setReadingBookYear(e.target.value.replace(/[^0-9]/g, '').slice(0, 4))}
+                            placeholder="Ví dụ: 2004"
+                            required={readingSource === 'verified_textbook_excerpt'}
+                            className="w-full min-h-[50px] px-4 py-3 bg-white border-2 border-slate-200 rounded-2xl focus:ring-4 focus:ring-amber-100 focus:border-amber-400 outline-none transition-all placeholder:text-slate-400 text-base shadow-inner font-medium"
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="flex items-center gap-2 text-sm font-extrabold text-slate-700 uppercase tracking-wide mb-2">
+                            Tên sách/bộ sách
+                          </span>
+                          <input
+                            type="text"
+                            value={readingBookTitle}
+                            onChange={(e) => setReadingBookTitle(e.target.value)}
+                            placeholder="Ví dụ: Tiếng Việt 3, tập một"
+                            className="w-full min-h-[50px] px-4 py-3 bg-white border-2 border-slate-200 rounded-2xl focus:ring-4 focus:ring-amber-100 focus:border-amber-400 outline-none transition-all placeholder:text-slate-400 text-base shadow-inner font-medium"
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="flex items-center gap-2 text-sm font-extrabold text-slate-700 uppercase tracking-wide mb-2">
+                            Tên bài đọc
+                          </span>
+                          <input
+                            type="text"
+                            value={readingLessonTitle}
+                            onChange={(e) => setReadingLessonTitle(e.target.value)}
+                            placeholder="Ví dụ: Người mẹ"
+                            className="w-full min-h-[50px] px-4 py-3 bg-white border-2 border-slate-200 rounded-2xl focus:ring-4 focus:ring-amber-100 focus:border-amber-400 outline-none transition-all placeholder:text-slate-400 text-base shadow-inner font-medium"
+                          />
+                        </label>
+                      </div>
+                      <div className="mt-3 rounded-xl bg-amber-50 border border-amber-100 px-3 py-2 text-sm text-amber-900">
+                        <span className="font-black">Dòng sẽ ghi dưới bài đọc: </span>
+                        {readingBookYear
+                          ? `Trích từ SGK Tiếng Việt lớp ${readingBookGrade}, năm ${readingBookYear}`
+                          : 'Trích từ SGK Tiếng Việt lớp ..., năm ...'}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <label className="block mt-4">
+                <span className="flex items-center gap-2 text-sm font-extrabold text-slate-700 uppercase tracking-wide mb-2">
+                  Ghi chú nguồn / yêu cầu thêm
+                </span>
+                <input
+                  type="text"
+                  value={readingSourceNote}
+                  onChange={(e) => setReadingSourceNote(e.target.value)}
+                  placeholder="Ví dụ: văn bản ngắn về quê hương, giọng văn giản dị như SGK cũ, có từ chỉ đặc điểm..."
+                  className="w-full min-h-[50px] px-4 py-3 bg-white border-2 border-slate-200 rounded-2xl focus:ring-4 focus:ring-amber-100 focus:border-amber-400 outline-none transition-all placeholder:text-slate-400 text-base shadow-inner font-medium"
+                />
+              </label>
+            </div>
+          )}
         </section>
 
         <section className="bg-white/70 border-2 border-slate-100 rounded-3xl p-4 md:p-6 shadow-sm">
