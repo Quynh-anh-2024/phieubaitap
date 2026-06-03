@@ -29,6 +29,12 @@ export type ExerciseType =
 export type DifficultyLevel = 'basic' | 'standard' | 'advanced' | 'differentiated';
 export type StudentTarget = 'support' | 'standard' | 'good' | 'mixed';
 export type AnswerMode = 'short' | 'explain' | 'rubric';
+export type ReadingSource =
+  | 'auto_new'
+  | 'old_textbook_style'
+  | 'folk_public'
+  | 'teacher_provided'
+  | 'verified_textbook_excerpt';
 
 export type QuestionFormat =
   | 'multiple_choice'
@@ -80,6 +86,34 @@ export const ANSWER_MODE_OPTIONS: OptionItem<AnswerMode>[] = [
   { value: 'rubric', label: 'Đáp án + hướng dẫn chấm', description: 'Có thang/gợi ý chấm cho tự luận và vận dụng.' },
 ];
 
+export const READING_SOURCE_OPTIONS: OptionItem<ReadingSource>[] = [
+  {
+    value: 'auto_new',
+    label: 'Tự tạo văn bản mới',
+    description: 'AI tự biên soạn bài đọc mới, phù hợp lớp học và chủ đề, không sao chép văn bản có bản quyền.',
+  },
+  {
+    value: 'old_textbook_style',
+    label: 'Phong cách SGK cũ trước 2006',
+    description: 'Chỉ lấy phong cách trong sáng, gần gũi của ngữ liệu cũ; không sao chép nguyên văn từ sách/PDF trên mạng.',
+  },
+  {
+    value: 'folk_public',
+    label: 'Dân gian, đồng dao, ca dao',
+    description: 'Ưu tiên truyện dân gian, đồng dao, ca dao, tục ngữ phù hợp học sinh tiểu học.',
+  },
+  {
+    value: 'teacher_provided',
+    label: 'Tự nhập bài đọc đã kiểm duyệt',
+    description: 'Giáo viên dán văn bản đọc hiểu cụ thể; app chỉ tạo câu hỏi theo Kết nối tri thức hiện hành.',
+  },
+  {
+    value: 'verified_textbook_excerpt',
+    label: 'Trích từ SGK cũ đã kiểm duyệt',
+    description: 'Giáo viên dán nguyên văn bài đọc và điền SGK lớp/năm xuất bản; app mới được ghi dòng “Trích từ...”.',
+  },
+];
+
 export const QUESTION_FORMAT_OPTIONS: OptionItem<QuestionFormat>[] = [
   { value: 'multiple_choice', label: 'Trắc nghiệm' },
   { value: 'true_false', label: 'Đúng/Sai' },
@@ -107,6 +141,15 @@ export interface WorksheetRequest {
   includeTeacherGuide: boolean;
   includeSelfAssessment: boolean;
   includeLocalContext: boolean;
+  readingSource?: ReadingSource;
+  readingText?: string;
+  readingSourceNote?: string;
+  readingBookGrade?: string;
+  readingBookYear?: string;
+  readingBookTitle?: string;
+  readingLessonTitle?: string;
+  readingCitationLine?: string;
+  lockReadingSource?: boolean;
 }
 
 export interface WorksheetResponse {
