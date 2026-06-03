@@ -7,6 +7,7 @@ import {
     STUDENT_TARGET_OPTIONS,
     ANSWER_MODE_OPTIONS,
     QUESTION_FORMAT_OPTIONS,
+    READING_SOURCE_OPTIONS,
     QuestionFormat,
 } from '../types';
 
@@ -149,6 +150,131 @@ const getSubjectMinimumRequirements = (subject: string): string => {
     return SUBJECT_MINIMUM_REQUIREMENTS[subject] || 'Yêu cầu tối thiểu: có câu nhận biết, thông hiểu, vận dụng và đáp án rõ ràng.';
 };
 
+
+const clipReadingText = (text?: string): string => {
+    const clean = (text || '').trim();
+    if (!clean) return '';
+    return clean.length > 6000 ? `${clean.slice(0, 6000)}\n[Đã rút gọn văn bản giáo viên nhập do quá dài. Khi tạo phiếu, chỉ dùng phần văn bản trên và không tự thêm nguồn khác.]` : clean;
+};
+
+
+const buildReadingCitationLine = (request: WorksheetRequest): string => {
+    const manualLine = (request.readingCitationLine || '').trim();
+    if (manualLine) return manualLine;
+
+    const grade = (request.readingBookGrade || '').trim();
+    const year = (request.readingBookYear || '').trim();
+    const title = (request.readingBookTitle || '').trim();
+    const lesson = (request.readingLessonTitle || '').trim();
+
+    if (request.readingSource !== 'verified_textbook_excerpt' || !grade || !year) return '';
+
+    const detailParts: string[] = [];
+    if (title) detailParts.push(title);
+    if (lesson) detailParts.push(`bài "${lesson}"`);
+    const detail = detailParts.length ? ` (${detailParts.join(', ')})` : '';
+    return `Trích từ SGK Tiếng Việt lớp ${grade}, năm ${year}${detail}`;
+};
+
+const getVietnameseGradeReadingGuide = (grade: string): string => {
+    switch (grade) {
+        case '1':
+            return 'Lớp 1: ngữ liệu rất ngắn, câu đơn giản, ưu tiên đọc tiếng/từ/câu, tìm chi tiết trực tiếp, nối, điền tiếng/từ, viết từ hoặc 1 câu ngắn; không yêu cầu phân tích.';
+        case '2':
+            return 'Lớp 2: ngữ liệu ngắn, gần gũi; câu hỏi tìm chi tiết, hiểu nghĩa từ đơn giản, đặt câu, viết 2-3 câu theo gợi ý.';
+        case '3':
+            return 'Lớp 3: ngữ liệu vừa phải; có tìm chi tiết, hiểu nội dung, giải nghĩa từ trong ngữ cảnh, đặt câu, sửa câu, viết đoạn 4-5 câu.';
+        case '4':
+            return 'Lớp 4: ngữ liệu có nội dung sâu hơn nhưng vẫn vừa sức; tăng suy luận, nhận xét nhân vật/sự việc, luyện từ và câu theo lớp, viết đoạn có lí do/cảm xúc.';
+        case '5':
+            return 'Lớp 5: ngữ liệu có thông điệp rõ; tăng hiểu chủ đề, suy luận, liên hệ, liên kết câu/vốn từ/biện pháp tu từ phù hợp, viết đoạn/bài ngắn theo yêu cầu.';
+        default:
+            return 'Ngữ liệu và câu hỏi phải phù hợp học sinh tiểu học, tăng dần độ khó nhưng không hàn lâm.';
+    }
+};
+
+const getVietnameseReadingSourceBlock = (request: WorksheetRequest): string => {
+    if (request.subject !== 'Tiếng Việt') return '';
+
+    const source = request.readingSource || 'auto_new';
+    const sourceLabel = getOptionLabel(READING_SOURCE_OPTIONS, source);
+    const note = (request.readingSourceNote || '').trim();
+    const providedText = clipReadingText(request.readingText);
+    const citationLine = buildReadingCitationLine(request);
+    const gradeGuide = getVietnameseGradeReadingGuide(request.grade);
+
+    const common = `
+KHÓA CHUẨN DỮ LIỆU ĐỌC HIỂU TIẾNG VIỆT:
+- Nguồn ngữ liệu giáo viên chọn: ${sourceLabel}.
+- ${gradeGuide}
+- Phần kiến thức, câu hỏi Luyện từ và câu, Viết, đáp án và tiêu chí chấm phải bám Tiếng Việt Kết nối tri thức hiện hành của lớp ${request.grade}; ngữ liệu đọc chỉ là văn bản luyện đọc hiểu.
+- Không tự lấy/sao chép nguyên văn văn bản từ internet, SGK cũ, PDF scan hoặc website nếu giáo viên không dán văn bản cụ thể.
+- Không bịa tên sách, tên tác giả, số trang, nguồn xuất bản. Nếu chỉ mô phỏng phong cách thì ghi “Nguồn ngữ liệu: Văn bản mới theo phong cách trong sáng, giản dị”.
+- Chỉ được ghi dòng “Trích từ SGK Tiếng Việt lớp..., năm...” khi giáo viên chọn nguồn “Trích từ SGK cũ đã kiểm duyệt”, có dán văn bản và có thông tin lớp/năm xuất bản.
+- Nếu dùng văn bản dân gian, có thể ghi “phỏng theo truyện dân gian/đồng dao/ca dao” khi phù hợp; không gán tác giả cụ thể nếu không chắc.
+- Ghi rõ trong phiếu: “Nguồn ngữ liệu” theo đúng lựa chọn, nhưng tránh khẳng định sai về bản quyền/nguồn.
+${citationLine ? `- Dòng trích nguồn bắt buộc đặt ngay dưới bài đọc: ${citationLine}` : ''}
+${note ? `- Ghi chú của giáo viên về nguồn/yêu cầu: ${note}` : ''}`;
+
+    if (source === 'verified_textbook_excerpt') {
+        if (providedText && citationLine) {
+            return `${common}
+
+VĂN BẢN TRÍCH TỪ SGK CŨ ĐÃ KIỂM DUYỆT - BẮT BUỘC BÁM VÀO VĂN BẢN NÀY:
+<<<VAN_BAN_TRICH_SGK_CU_DA_KIEM_DUYET
+${providedText}
+VAN_BAN_TRICH_SGK_CU_DA_KIEM_DUYET>>>
+Yêu cầu bắt buộc:
+- Dùng đúng văn bản trên để tạo phần Đọc hiểu; không thay bằng bài đọc khác.
+- Ngay dưới bài đọc, ghi đúng dòng: “${citationLine}”.
+- Không tự bổ sung tên sách, tác giả, số trang hoặc nguồn khác nếu giáo viên không nhập.
+- Phần câu hỏi kiến thức vẫn bám Tiếng Việt Kết nối tri thức hiện hành của lớp ${request.grade}.`;
+        }
+        return `${common}
+
+Giáo viên chọn “Trích từ SGK cũ đã kiểm duyệt” nhưng chưa đủ văn bản hoặc chưa đủ lớp/năm xuất bản. Không được ghi “Trích từ...”. Hãy tạo văn bản mới theo chủ đề và ghi “Nguồn ngữ liệu: Văn bản mới do hệ thống biên soạn theo chủ đề”.`;
+    }
+
+    if (source === 'teacher_provided') {
+        if (providedText) {
+            return `${common}
+
+VĂN BẢN GIÁO VIÊN CUNG CẤP - BẮT BUỘC BÁM VÀO VĂN BẢN NÀY:
+<<<VAN_BAN_GIAO_VIEN_CUNG_CAP
+${providedText}
+VAN_BAN_GIAO_VIEN_CUNG_CAP>>>
+Yêu cầu: dùng đúng văn bản trên để tạo phần Đọc hiểu; không thay bằng bài đọc khác. Có thể chỉnh rất nhẹ lỗi chính tả/dấu câu nếu cần, nhưng không làm thay đổi nội dung. Nếu không có thông tin SGK lớp/năm xuất bản, không ghi “Trích từ SGK...”.`;
+        }
+        return `${common}
+
+Giáo viên chọn “Tự nhập bài đọc đã kiểm duyệt” nhưng chưa dán văn bản. Hãy tự tạo một văn bản mới phù hợp chủ đề, không sao chép internet, và ghi rõ “Nguồn ngữ liệu: Văn bản mới do hệ thống biên soạn theo chủ đề”.`;
+    }
+
+    if (source === 'old_textbook_style') {
+        return `${common}
+
+YÊU CẦU RIÊNG KHI CHỌN PHONG CÁCH SGK CŨ TRƯỚC 2006:
+- Chỉ mô phỏng phong cách: câu văn giản dị, ấm áp, gần gũi gia đình - nhà trường - quê hương - thiên nhiên - lao động - tình bạn.
+- Không sao chép nguyên văn bài đọc cũ, không ghi là trích từ SGK cũ, không nêu tên bài/tác giả/sách nếu không được giáo viên cung cấp.
+- Bài đọc phải là văn bản mới, có thể có cảm giác quen thuộc như bài đọc xưa nhưng nội dung phải tự biên soạn.`;
+    }
+
+    if (source === 'folk_public') {
+        return `${common}
+
+YÊU CẦU RIÊNG KHI CHỌN NGỮ LIỆU DÂN GIAN:
+- Ưu tiên truyện dân gian, ngụ ngôn, đồng dao, ca dao, tục ngữ phù hợp lứa tuổi; có thể kể lại/chuyển thể ngắn bằng lời văn mới.
+- Không dùng dị bản quá dài hoặc có chi tiết không phù hợp học sinh tiểu học.
+- Câu hỏi phải khai thác bài học, từ ngữ, nhân vật/sự việc và liên hệ bản thân.`;
+    }
+
+    return `${common}
+
+YÊU CẦU RIÊNG KHI TỰ TẠO VĂN BẢN MỚI:
+- Tự biên soạn bài đọc mới theo chủ đề giáo viên nhập, độ dài vừa sức lớp ${request.grade}, ngôn ngữ trong sáng.
+- Bài đọc cần có chi tiết đủ rõ để tạo câu hỏi đọc hiểu, luyện từ và câu, viết; không quá chung chung.`;
+};
+
 const buildWorksheetPrompt = (request: WorksheetRequest): string => {
     const exerciseTypeLabel = getOptionLabel(EXERCISE_TYPE_OPTIONS, request.exerciseType);
     const difficultyLabel = getOptionLabel(DIFFICULTY_OPTIONS, request.difficultyLevel);
@@ -160,6 +286,7 @@ const buildWorksheetPrompt = (request: WorksheetRequest): string => {
     const subjectMinimumRequirements = getSubjectMinimumRequirements(request.subject);
     const difficultyDistribution = getDifficultyDistribution(request);
     const questionCountPlan = getQuestionCountPlan(request);
+    const vietnameseReadingSourceBlock = getVietnameseReadingSourceBlock(request);
 
     return `
 Hãy tạo phiếu bài tập ôn luyện chất lượng cao theo đúng thông tin sau:
@@ -180,6 +307,7 @@ Hãy tạo phiếu bài tập ôn luyện chất lượng cao theo đúng thông
 
 ${subjectQualityBlock}
 ${subjectMinimumRequirements}
+${vietnameseReadingSourceBlock}
 
 PHÂN HÓA BẮT BUỘC:
 ${difficultyDistribution}
@@ -239,7 +367,7 @@ export const generateWorksheet = async (request: WorksheetRequest, apiKey: strin
     const client = getGeminiClient(apiKey);
     const model = 'gemini-3-flash-preview';
 
-    const isReadingWorksheet = request.exerciseType === 'reading' && request.subject === 'Tiếng Việt';
+    const isReadingWorksheet = request.subject === 'Tiếng Việt';
     const systemInstruction = isReadingWorksheet ? READING_SYSTEM_INSTRUCTION : SYSTEM_INSTRUCTION;
     const userPrompt = buildWorksheetPrompt(request);
 
