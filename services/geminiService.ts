@@ -1,5 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
-import { SYSTEM_INSTRUCTION, READING_SYSTEM_INSTRUCTION, SUBJECT_QUALITY_RULES } from '../constants';
+import { SYSTEM_INSTRUCTION, READING_SYSTEM_INSTRUCTION, SUBJECT_QUALITY_RULES, SUBJECT_ANSWER_RULES, DETAILED_ANSWER_LOCK_INSTRUCTION, KNOWLEDGE_AUDIT_INSTRUCTION } from '../constants';
 import {
     WorksheetRequest,
     EXERCISE_TYPE_OPTIONS,
@@ -151,6 +151,33 @@ const getSubjectMinimumRequirements = (subject: string): string => {
 };
 
 
+const getSubjectAnswerRules = (subject: string): string => {
+    return SUBJECT_ANSWER_RULES[subject] || 'Đáp án phải có căn cứ rõ, giải thích vừa sức học sinh tiểu học và phụ huynh; câu mở cần có tiêu chí chấp nhận.';
+};
+
+const getAnswerModeQualityBlock = (request: WorksheetRequest): string => {
+    const count = request.questionCount || 10;
+    const base = `
+KHÓA MỨC ĐỘ CHI TIẾT CỦA ĐÁP ÁN:
+- Kiểu đáp án giáo viên chọn: ${getOptionLabel(ANSWER_MODE_OPTIONS, request.answerMode)}.
+- Dù chọn kiểu nào, đáp án không được sai, không được chung chung, không được chỉ chép lại đề.
+`;
+
+    if (request.answerMode === 'short') {
+        return `${base}
+Yêu cầu riêng: đáp án có thể ngắn gọn nhưng vẫn phải kèm giải thích tối thiểu cho các câu dễ nhầm, câu vận dụng, câu đúng/sai, câu nối và câu phát hiện lỗi sai. Không cần giải thích dài mọi phương án nếu phiếu dùng để kiểm tra nhanh.`;
+    }
+
+    if (request.answerMode === 'rubric') {
+        return `${base}
+Yêu cầu riêng: ngoài đáp án và giải thích, cần có hướng dẫn chấm/tiêu chí đánh giá cho câu tự luận, viết đoạn, tình huống, vận dụng. Với phiếu có ${count} câu, câu dễ có thể chấm gọn, câu vận dụng và thử thách phải có tiêu chí rõ.`;
+    }
+
+    return `${base}
+Yêu cầu riêng: ưu tiên đáp án chi tiết cho PHHS. Với câu trắc nghiệm phải giải thích vì sao đáp án đúng đúng và vì sao từng phương án sai sai. Với câu mở, ghi gợi ý và tiêu chí chấp nhận, không áp đặt một đáp án duy nhất.`;
+};
+
+
 const clipReadingText = (text?: string): string => {
     const clean = (text || '').trim();
     if (!clean) return '';
@@ -284,6 +311,8 @@ const buildWorksheetPrompt = (request: WorksheetRequest): string => {
     const formatLabel = getFormatLabels(selectedFormats);
     const subjectQualityBlock = getSubjectQualityBlock(request.subject);
     const subjectMinimumRequirements = getSubjectMinimumRequirements(request.subject);
+    const subjectAnswerRules = getSubjectAnswerRules(request.subject);
+    const answerModeQualityBlock = getAnswerModeQualityBlock(request);
     const difficultyDistribution = getDifficultyDistribution(request);
     const questionCountPlan = getQuestionCountPlan(request);
     const vietnameseReadingSourceBlock = getVietnameseReadingSourceBlock(request);
@@ -307,6 +336,10 @@ Hãy tạo phiếu bài tập ôn luyện chất lượng cao theo đúng thông
 
 ${subjectQualityBlock}
 ${subjectMinimumRequirements}
+${subjectAnswerRules}
+${answerModeQualityBlock}
+${DETAILED_ANSWER_LOCK_INSTRUCTION}
+${KNOWLEDGE_AUDIT_INSTRUCTION}
 ${vietnameseReadingSourceBlock}
 
 PHÂN HÓA BẮT BUỘC:
@@ -324,6 +357,7 @@ YÊU CẦU KIỂM SOÁT CHẤT LƯỢNG KIẾN THỨC:
 8. Nếu có nối cột, dùng bảng 3 cột: Cột A, Cột B, Trả lời.
 9. Nếu có sắp xếp thứ tự, các bước phải cùng một quy trình thật, không trộn bước không liên quan.
 10. Đáp án phải đủ rõ để giáo viên, học sinh và phụ huynh đối chiếu; với câu mở phải có tiêu chí chấp nhận.
+11. Không được đưa câu hỏi nếu bản thân không chắc đáp án/giải thích; hãy thay bằng câu chắc chắn hơn, có dữ kiện rõ hơn.
 
 YÊU CẦU TRÌNH BÀY SẠCH ĐỂ XUẤT WORD:
 - Không dùng LaTeX. Không dùng ký tự đô la, dấu gạch chéo ngược, dòng phân cách ---, ký hiệu căn bảng :--- trong đề và đáp án.
@@ -340,12 +374,12 @@ Loại phiếu: ${exerciseTypeLabel}
 ## I. MỤC TIÊU PHIẾU HỌC TẬP
 ## II. MA TRẬN CÂU HỎI
 ## III. ĐỀ BÀI
-## IV. ĐÁP ÁN VÀ HƯỚNG DẪN
+## IV. ĐÁP ÁN VÀ HƯỚNG DẪN CHI TIẾT CHO PHHS
 ## V. GỢI Ý SỬ DỤNG CHO GIÁO VIÊN
 ## VI. GỢI Ý PHỤ HUYNH THEO DÕI CON HỌC Ở NHÀ
 ## VII. HỌC SINH TỰ ĐÁNH GIÁ
 
-Trước khi trả kết quả, hãy tự kiểm định: đúng môn, đúng lớp, đúng chủ đề, đủ phân hóa, đủ dạng bài phù hợp môn, không sai kiến thức, không trùng lặp, không ký tự lạ, đáp án khớp đề.
+Trước khi trả kết quả, hãy tự kiểm định nội bộ từng câu: đúng môn, đúng lớp, đúng chủ đề, đủ phân hóa, đủ dạng bài phù hợp môn, không sai kiến thức, không trùng lặp, không ký tự lạ, đáp án khớp đề, giải thích đủ để PHHS hướng dẫn con. Không hiển thị bảng kiểm định nội bộ trong phiếu.
 `;
 };
 
@@ -377,7 +411,7 @@ export const generateWorksheet = async (request: WorksheetRequest, apiKey: strin
             contents: userPrompt,
             config: {
                 systemInstruction: systemInstruction,
-                temperature: 0.55,
+                temperature: 0.45,
             }
         });
 
