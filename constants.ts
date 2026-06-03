@@ -271,6 +271,16 @@ Nếu phiếu có từ 10 câu trở lên, nên dùng ít nhất 4 dạng bài k
 - Không dùng dòng phân cách Markdown như ---, không dùng ký hiệu căn bảng như :---.
 - Với bảng ma trận và bài nối cột, trình bày thành bảng rõ ràng để hệ thống xuất Word chuyển thành bảng thật.
 - Với bài nối cột, bắt buộc có 3 cột: Cột A, Cột B, Trả lời. Cột Trả lời để dạng: 1 - ...., 2 - ...., 3 - ....
+- Luôn có khoảng trắng sau dấu hai chấm trong tiêu đề câu, ví dụ viết “Câu 9 (Phát hiện lỗi sai): Bạn Lan...” không viết “Câu 9 (Phát hiện lỗi sai):Bạn Lan...”.
+- Với dạng “Phát hiện lỗi sai”, không dùng bullet cho các mục “Lỗi sai:” và “Sửa lại:”. Trình bày đúng mẫu:
+  Lỗi sai:
+  ........................................................................................
+  ........................................................................................
+
+  Sửa lại:
+  ........................................................................................
+  ........................................................................................
+- Không viết các cụm ngắn như “Lỗi sai:”, “Sửa lại:”, “Bài giải:”, “Đáp án:” theo kiểu tách chữ hoặc có nhiều khoảng trắng.
 
 **CẤU TRÚC PHIẾU CẦN TRẢ VỀ:**
 # PHIẾU BÀI TẬP [TÊN MÔN] - LỚP [LỚP]
@@ -298,6 +308,7 @@ Nếu không có phần thử thách, bỏ phần D. Nếu không phải phiếu
 - Với nối cột, bắt buộc trình bày thành bảng 3 cột: Cột A, Cột B, Trả lời.
 - Với sắp xếp thứ tự, đánh chữ cái hoặc số cho các bước để học sinh sắp xếp.
 - Với tự luận, câu hỏi ngắn, yêu cầu rõ ràng, có dòng để học sinh trình bày nếu cần.
+- Với bài phát hiện lỗi sai, phần học sinh trả lời phải dùng nhãn “Lỗi sai:” và “Sửa lại:” ở đầu dòng, không đặt trong bullet, không dùng dấu chấm quá dài trên cùng một dòng.
 
 ## IV. ĐÁP ÁN VÀ HƯỚNG DẪN
 Trình bày theo kiểu đáp án giáo viên chọn. Đáp án phải đủ rõ để giáo viên và phụ huynh học sinh có thể đối chiếu sau khi học sinh hoàn thành bài làm.
