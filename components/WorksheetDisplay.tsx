@@ -84,8 +84,53 @@ const cleanPlainText = (text: string): string =>
     .replace(/\*\*([^*]+)\*\*/g, '$1')
     .replace(/\*([^*]+)\*/g, '$1')
     .replace(/\|/g, ' ')
+    // Sửa lỗi thiếu khoảng trắng sau dấu hai chấm, ví dụ: "Câu 9:Bạn" → "Câu 9: Bạn".
+    // Không tác động vào phép chia "42 : 7" hoặc giờ/phút vì sau dấu : là chữ cái tiếng Việt/Latin.
+    .replace(/:\s*(?=[A-Za-zÀ-ỹ])/g, ': ')
+    .replace(/\)\s*:\s*(?=[A-Za-zÀ-ỹ])/g, '): ')
     .replace(/\s+/g, ' ')
     .trim();
+
+const DOT_LINE = '........................................................................................';
+
+const isDottedAnswerLine = (line: string): boolean => {
+  const plain = cleanPlainText(line);
+  const dotCount = (plain.match(/\./g) || []).length;
+  return dotCount >= 12 && dotCount >= Math.max(12, Math.floor(plain.length * 0.55));
+};
+
+const createDottedParagraph = (): Paragraph =>
+  createParagraph(DOT_LINE, { alignment: AlignmentType.LEFT, spacingAfter: 80 });
+
+const ERROR_FIX_LABELS = [
+  'lỗi sai',
+  'sửa lại',
+  'cách sửa',
+  'bài giải',
+  'đáp án',
+  'giải thích',
+  'gợi ý phhs',
+  'lỗi học sinh thường gặp',
+];
+
+const normalizeLabelSpacing = (text: string): string =>
+  cleanPlainText(text)
+    .replace(/\bLỗi\s+sai\s*:/gi, 'Lỗi sai:')
+    .replace(/\bSửa\s+lại\s*:/gi, 'Sửa lại:')
+    .replace(/\bCách\s+sửa\s*:/gi, 'Cách sửa:')
+    .replace(/\bBài\s+giải\s*:/gi, 'Bài giải:')
+    .replace(/\bĐáp\s+án\s*:/gi, 'Đáp án:')
+    .replace(/\bGiải\s+thích\s*:/gi, 'Giải thích:')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const stripListMarker = (line: string): string =>
+  line.trim().replace(/^[-•●]\s+/, '').replace(/^\*\s+/, '').trim();
+
+const isSpecialShortLabel = (line: string): boolean => {
+  const normalized = normalizeLabelSpacing(stripListMarker(line)).toLowerCase();
+  return ERROR_FIX_LABELS.some((label) => normalized === `${label}:` || normalized.startsWith(`${label}: `));
+};
 
 const isOnlySeparator = (line: string): boolean => /^\s*[-–—]{3,}\s*$/.test(line.trim());
 
@@ -156,7 +201,7 @@ const createParagraph = (
 ): Paragraph => {
   return new Paragraph({
     children: createRuns(text, { bold: options?.bold, italics: options?.italics, size: options?.size }),
-    alignment: options?.alignment || AlignmentType.JUSTIFIED,
+    alignment: options?.alignment || AlignmentType.LEFT,
     heading: options?.heading,
     bullet: options?.bullet ? { level: 0 } : undefined,
     spacing: {
@@ -426,13 +471,30 @@ const parseContentToDocxBlocks = (text: string, options?: { addPageBreakBeforeAn
       continue;
     }
 
-    if (/^[-•●]\s+/.test(trimmed) || /^\*\s+/.test(trimmed)) {
-      const bulletText = trimmed.replace(/^[-•●]\s+/, '').replace(/^\*\s+/, '');
-      blocks.push(createParagraph(bulletText, { bullet: true, spacingAfter: 80 }));
+    if (isDottedAnswerLine(trimmed)) {
+      blocks.push(createDottedParagraph());
       continue;
     }
 
-    blocks.push(createParagraph(trimmed));
+    if (isSpecialShortLabel(trimmed)) {
+      blocks.push(
+        createParagraph(normalizeLabelSpacing(stripListMarker(trimmed)), {
+          bold: true,
+          alignment: AlignmentType.LEFT,
+          spacingBefore: 80,
+          spacingAfter: 40,
+        })
+      );
+      continue;
+    }
+
+    if (/^[-•●]\s+/.test(trimmed) || /^\*\s+/.test(trimmed)) {
+      const bulletText = normalizeLabelSpacing(stripListMarker(trimmed));
+      blocks.push(createParagraph(bulletText, { bullet: true, alignment: AlignmentType.LEFT, spacingAfter: 80 }));
+      continue;
+    }
+
+    blocks.push(createParagraph(normalizeLabelSpacing(trimmed), { alignment: AlignmentType.LEFT }));
   }
 
   return blocks;
