@@ -3,7 +3,7 @@ import WorksheetForm from './components/WorksheetForm';
 import WorksheetDisplay from './components/WorksheetDisplay';
 import { generateWorksheet, validateApiKey } from './services/geminiService';
 import { WorksheetRequest } from './types';
-import { BookOpenCheck, Key, ExternalLink, Save, CheckCircle2, AlertCircle } from 'lucide-react';
+import { BookOpenCheck, Key, ExternalLink, CheckCircle2, AlertCircle } from 'lucide-react';
 
 function App() {
   const [worksheetContent, setWorksheetContent] = useState<string>('');
@@ -171,7 +171,7 @@ function App() {
             </div>
           )}
 
-          {!worksheetContent && !isLoading && !error && (
+          {!worksheetContent && !isLoading && (
             <div className="animate-fade-in space-y-8 md:space-y-12">
                  <WorksheetForm onSubmit={handleGenerate} isLoading={isLoading} />
                  

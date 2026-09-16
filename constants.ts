@@ -12,7 +12,7 @@ export const SUBJECT_QUALITY_RULES: Record<string, string> = {
 `,
   'Tiếng Việt': `
 **QUY TẮC CHẤT LƯỢNG RIÊNG MÔN TIẾNG VIỆT:**
-- Phiếu Tiếng Việt cần cân bằng Đọc hiểu, Luyện từ và câu, Viết; không chỉ tạo câu hỏi đọc hiểu đơn giản.
+- Phiếu Tiếng Việt phải bám đúng phạm vi người dùng chọn: Đọc hiểu, Luyện từ và câu, Luyện viết hoặc Tổng hợp; không tự thêm phần ngoài phạm vi.
 - Phần kiến thức, dạng câu hỏi và yêu cầu làm bài phải bám mạch Tiếng Việt hiện hành theo định hướng Kết nối tri thức; ngữ liệu đọc chỉ là nguồn để luyện đọc hiểu.
 - Nếu có ngữ liệu đọc, phải tuân thủ khóa nguồn: ưu tiên văn bản mới tự biên soạn, văn bản dân gian phù hợp hoặc văn bản do giáo viên dán vào; không tự sao chép nguyên văn bài đọc trong SGK cũ/PDF/website nếu giáo viên không cung cấp.
 - Nếu giáo viên chọn “Phong cách SGK cũ trước 2006”, chỉ mô phỏng phong cách trong sáng, giản dị, gần gũi; tuyệt đối không khẳng định trích từ sách cũ, không bịa tên sách/tác giả/trang.
@@ -223,7 +223,7 @@ Phiếu bài tập phải giúp giáo viên ôn luyện thật sự hiệu quả
 7. Câu vận dụng phải có tình huống, dữ kiện hoặc nhiệm vụ thực tế; không gọi một phép tính đơn thuần là vận dụng.
 8. Câu thử thách dành cho học sinh khá, giỏi nhưng không được vượt chương trình; khó do tư duy, không khó do đánh đố.
 9. Ngôn ngữ trong sáng, ngắn gọn, chuẩn sư phạm, phù hợp học sinh tiểu học.
-10. Nếu có câu tự luận, tình huống hoặc sáng tạo, phải có đáp án mẫu, tiêu chí chấm hoặc gợi ý đánh giá.
+10. Nếu có câu tự luận, tình huống hoặc sáng tạo, đáp án tuân theo mức chi tiết người dùng chọn; câu mở phải có ít nhất các ý/tiêu chí được chấp nhận.
 11. Nếu có câu trắc nghiệm, chỉ có một đáp án đúng; phương án nhiễu phải hợp lí và dựa trên lỗi học sinh thường gặp.
 
 **KIỂM TRA MÔN HỌC THEO LỚP:**
@@ -292,7 +292,7 @@ Loại phiếu: [Loại phiếu]
 Nêu 3-5 mục tiêu ngắn gọn, đúng trọng tâm. Mục tiêu phải tương ứng với nội dung câu hỏi trong phiếu.
 
 ## II. MA TRẬN CÂU HỎI
-Nếu giáo viên yêu cầu có ma trận, lập bảng gồm: Mức độ, số câu, dạng bài, mục tiêu đánh giá, ghi chú. Ma trận dùng cho bản giáo viên và khi xuất Word phải nằm trong khung bảng.
+Chỉ tạo mục này khi giáo viên yêu cầu. Lập bảng gồm: Mức độ, số câu, dạng bài, mục tiêu đánh giá, ghi chú.
 
 ## III. ĐỀ BÀI
 Nếu là phiếu phân hóa hoặc dành cho cả lớp, chia theo cấu trúc:
@@ -318,13 +318,7 @@ Trình bày theo kiểu đáp án giáo viên chọn. Đáp án phải đủ rõ
 - Với dạng nối cột, đáp án ghi theo mẫu: Câu ...: 1 - B; 2 - A; 3 - C.
 
 ## V. GỢI Ý SỬ DỤNG CHO GIÁO VIÊN
-Nếu giáo viên yêu cầu, nêu cách dùng phiếu: dùng trên lớp, giao về nhà, phụ đạo, bồi dưỡng hoặc chia nhóm học sinh.
-
-## VI. GỢI Ý PHỤ HUYNH THEO DÕI CON HỌC Ở NHÀ
-Nêu 3-5 gợi ý ngắn, dễ hiểu để phụ huynh hỗ trợ con sau khi con làm xong bài; không yêu cầu phụ huynh làm thay con.
-
-## VII. HỌC SINH TỰ ĐÁNH GIÁ
-Nếu giáo viên yêu cầu, thêm mục tự đánh giá ngắn: Con làm tốt phần nào? Câu nào còn cần hỗ trợ? Con tự đánh dấu: Đã làm tốt / Còn cần luyện thêm.
+Nêu tối đa 2-3 gợi ý ngắn, đúng mục đích phiếu. Không tạo mục phụ huynh hoặc tự đánh giá; hệ thống xuất Word xử lý riêng.
 
 **BỘ KIỂM ĐỊNH CHẤT LƯỢNG TRƯỚC KHI TRẢ KẾT QUẢ:**
 Trước khi trả kết quả, hãy tự rà soát và chỉ trả nội dung đã đạt:
