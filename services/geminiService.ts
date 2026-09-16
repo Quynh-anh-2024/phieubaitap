@@ -1,9 +1,8 @@
 import { GoogleGenAI } from "@google/genai";
-import { SYSTEM_INSTRUCTION, READING_SYSTEM_INSTRUCTION, SUBJECT_QUALITY_RULES, SUBJECT_ANSWER_RULES, DETAILED_ANSWER_LOCK_INSTRUCTION, KNOWLEDGE_AUDIT_INSTRUCTION } from '../constants';
+import { SYSTEM_INSTRUCTION, SUBJECT_QUALITY_RULES, SUBJECT_ANSWER_RULES, KNOWLEDGE_AUDIT_INSTRUCTION } from '../constants';
 import {
     WorksheetRequest,
     EXERCISE_TYPE_OPTIONS,
-    DIFFICULTY_OPTIONS,
     STUDENT_TARGET_OPTIONS,
     ANSWER_MODE_OPTIONS,
     QUESTION_FORMAT_OPTIONS,
@@ -20,17 +19,6 @@ const getGeminiClient = (apiKey: string) => {
 
 const getOptionLabel = <T extends string>(options: { value: T; label: string }[], value: T): string => {
     return options.find((option) => option.value === value)?.label || value;
-};
-
-const SUBJECT_DEFAULT_FORMATS: Record<string, QuestionFormat[]> = {
-    'Toán': ['multiple_choice', 'fill_blank', 'true_false', 'real_context', 'error_finding', 'short_answer'],
-    'Tiếng Việt': ['multiple_choice', 'fill_blank', 'short_answer', 'real_context', 'creative'],
-    'Tự nhiên và Xã hội': ['true_false', 'matching', 'short_answer', 'real_context', 'creative'],
-    'Đạo đức': ['true_false', 'multiple_choice', 'short_answer', 'real_context', 'creative'],
-    'Công nghệ': ['matching', 'ordering', 'true_false', 'short_answer', 'real_context', 'creative'],
-    'Tin học': ['matching', 'ordering', 'true_false', 'short_answer', 'real_context', 'error_finding', 'creative'],
-    'Khoa học': ['multiple_choice', 'true_false', 'matching', 'short_answer', 'real_context', 'error_finding'],
-    'Lịch sử và Địa lý': ['matching', 'multiple_choice', 'fill_blank', 'short_answer', 'real_context', 'creative'],
 };
 
 const SUBJECT_MINIMUM_REQUIREMENTS: Record<string, string> = {
@@ -97,13 +85,7 @@ const getDifficultyDistribution = (request: WorksheetRequest): string => {
     if (request.studentTarget === 'good') {
         return 'Phân bổ ưu tiên: khoảng 20% Nhận biết, 30% Thông hiểu, 35% Vận dụng, 15% Thử thách; tăng giải thích, tìm lỗi, sáng tạo.';
     }
-    if (request.difficultyLevel === 'basic') {
-        return 'Phân bổ ưu tiên: khoảng 60% Nhận biết, 30% Thông hiểu, 10% Vận dụng nhẹ.';
-    }
-    if (request.difficultyLevel === 'advanced') {
-        return 'Phân bổ ưu tiên: khoảng 20% Nhận biết, 30% Thông hiểu, 35% Vận dụng, 15% Thử thách.';
-    }
-    if (request.difficultyLevel === 'differentiated' || request.studentTarget === 'mixed' || request.exerciseType === 'differentiated') {
+    if (request.studentTarget === 'mixed') {
         return 'Phân bổ bắt buộc: chia rõ A. Củng cố cơ bản, B. Luyện tập chuẩn, C. Vận dụng, D. Thử thách nếu có; mỗi phần phải khác nhau rõ về yêu cầu tư duy.';
     }
     return 'Phân bổ ưu tiên: khoảng 40% Nhận biết, 35% Thông hiểu, 25% Vận dụng.';
@@ -130,6 +112,7 @@ const getQuestionCountPlan = (request: WorksheetRequest): string => {
 };
 
 const getFormatLabels = (formats: QuestionFormat[]): string => {
+    if (!formats.length) return 'AI tự chọn 3-4 dạng bài phù hợp nhất với môn học và mục tiêu; không cố nhồi tất cả dạng bài';
     return formats
         .map((format) => getOptionLabel(QUESTION_FORMAT_OPTIONS, format))
         .join(', ');
@@ -137,22 +120,37 @@ const getFormatLabels = (formats: QuestionFormat[]): string => {
 
 const getSelectedFormats = (request: WorksheetRequest): QuestionFormat[] => {
     const selected = request.preferredFormats || [];
-    const subjectDefaults = SUBJECT_DEFAULT_FORMATS[request.subject] || ['multiple_choice', 'true_false', 'fill_blank', 'short_answer', 'real_context'];
-    const merged = [...selected, ...subjectDefaults];
-    return Array.from(new Set(merged));
+    return Array.from(new Set(selected));
 };
 
 const getSubjectQualityBlock = (subject: string): string => {
     return SUBJECT_QUALITY_RULES[subject] || 'Áp dụng quy tắc chung: đúng lớp, đúng chủ đề, phân hóa rõ, đa dạng dạng bài, có đáp án chấm được.';
 };
 
-const getSubjectMinimumRequirements = (subject: string): string => {
-    return SUBJECT_MINIMUM_REQUIREMENTS[subject] || 'Yêu cầu tối thiểu: có câu nhận biết, thông hiểu, vận dụng và đáp án rõ ràng.';
+const getSubjectMinimumRequirements = (request: WorksheetRequest): string => {
+    if (request.subject !== 'Tiếng Việt') {
+        return SUBJECT_MINIMUM_REQUIREMENTS[request.subject] || 'Yêu cầu tối thiểu: có câu nhận biết, thông hiểu, vận dụng và đáp án rõ ràng.';
+    }
+
+    switch (request.vietnameseScope) {
+        case 'reading':
+            return 'YÊU CẦU TIẾNG VIỆT: Chỉ tập trung Đọc hiểu. Có câu tìm chi tiết, hiểu nội dung, từ ngữ trong ngữ cảnh và liên hệ vừa sức; không tự thêm phần viết dài hoặc luyện từ và câu độc lập.';
+        case 'writing':
+            return 'YÊU CẦU TIẾNG VIỆT: Chỉ tập trung Luyện viết. Có yêu cầu rõ số câu/dòng, gợi ý ngắn và tiêu chí chấm; không tự tạo bài đọc hiểu.';
+        case 'comprehensive':
+            return SUBJECT_MINIMUM_REQUIREMENTS['Tiếng Việt'];
+        case 'language':
+        default:
+            return 'YÊU CẦU TIẾNG VIỆT: Chỉ tập trung Luyện từ và câu theo chủ đề. Có nhận biết, thực hành và vận dụng đặt/sửa câu; không tự tạo bài đọc hiểu hay đề viết đoạn dài.';
+    }
 };
 
 
-const getSubjectAnswerRules = (subject: string): string => {
-    return SUBJECT_ANSWER_RULES[subject] || 'Đáp án phải có căn cứ rõ, giải thích vừa sức học sinh tiểu học và phụ huynh; câu mở cần có tiêu chí chấp nhận.';
+const getSubjectAnswerRules = (request: WorksheetRequest): string => {
+    if (request.answerMode === 'short') {
+        return 'Đáp án phải chính xác và khớp từng câu. Chỉ ghi kết quả/ý trả lời cần thiết; câu mở ghi ngắn các ý hoặc tiêu chí được chấp nhận.';
+    }
+    return SUBJECT_ANSWER_RULES[request.subject] || 'Đáp án phải có căn cứ rõ, giải thích vừa sức học sinh tiểu học và phụ huynh; câu mở cần có tiêu chí chấp nhận.';
 };
 
 const getAnswerModeQualityBlock = (request: WorksheetRequest): string => {
@@ -165,7 +163,7 @@ KHÓA MỨC ĐỘ CHI TIẾT CỦA ĐÁP ÁN:
 
     if (request.answerMode === 'short') {
         return `${base}
-Yêu cầu riêng: đáp án có thể ngắn gọn nhưng vẫn phải kèm giải thích tối thiểu cho các câu dễ nhầm, câu vận dụng, câu đúng/sai, câu nối và câu phát hiện lỗi sai. Không cần giải thích dài mọi phương án nếu phiếu dùng để kiểm tra nhanh.`;
+Yêu cầu riêng: chỉ ghi đáp án/kết quả theo từng câu. Không giải thích từng phương án sai, không thêm lỗi thường gặp hoặc hướng dẫn dài. Với câu mở, chỉ nêu các ý/tiêu chí chấp nhận ngắn gọn.`;
     }
 
     if (request.answerMode === 'rubric') {
@@ -221,7 +219,7 @@ const getVietnameseGradeReadingGuide = (grade: string): string => {
 };
 
 const getVietnameseReadingSourceBlock = (request: WorksheetRequest): string => {
-    if (request.subject !== 'Tiếng Việt') return '';
+    if (request.subject !== 'Tiếng Việt' || !['reading', 'comprehensive'].includes(request.vietnameseScope || '')) return '';
 
     const source = request.readingSource || 'auto_new';
     const sourceLabel = getOptionLabel(READING_SOURCE_OPTIONS, source);
@@ -302,20 +300,42 @@ YÊU CẦU RIÊNG KHI TỰ TẠO VĂN BẢN MỚI:
 - Bài đọc cần có chi tiết đủ rõ để tạo câu hỏi đọc hiểu, luyện từ và câu, viết; không quá chung chung.`;
 };
 
+const getVietnameseScopeBlock = (request: WorksheetRequest): string => {
+    if (request.subject !== 'Tiếng Việt') return '';
+    const scopeMap = {
+        reading: 'Luyện đọc hiểu',
+        language: 'Luyện từ và câu',
+        writing: 'Luyện viết',
+        comprehensive: 'Tổng hợp Đọc hiểu - Luyện từ và câu - Viết',
+    } as const;
+    const scope = request.vietnameseScope || 'language';
+    return `PHẠM VI TIẾNG VIỆT BẮT BUỘC: ${scopeMap[scope]}. Chỉ tạo đúng phạm vi này; không tự thêm các phần ngoài phạm vi giáo viên đã chọn.`;
+};
+
 const buildWorksheetPrompt = (request: WorksheetRequest): string => {
     const exerciseTypeLabel = getOptionLabel(EXERCISE_TYPE_OPTIONS, request.exerciseType);
-    const difficultyLabel = getOptionLabel(DIFFICULTY_OPTIONS, request.difficultyLevel);
     const studentTargetLabel = getOptionLabel(STUDENT_TARGET_OPTIONS, request.studentTarget);
     const answerModeLabel = getOptionLabel(ANSWER_MODE_OPTIONS, request.answerMode);
     const selectedFormats = getSelectedFormats(request);
     const formatLabel = getFormatLabels(selectedFormats);
     const subjectQualityBlock = getSubjectQualityBlock(request.subject);
-    const subjectMinimumRequirements = getSubjectMinimumRequirements(request.subject);
-    const subjectAnswerRules = getSubjectAnswerRules(request.subject);
+    const subjectMinimumRequirements = getSubjectMinimumRequirements(request);
+    const subjectAnswerRules = getSubjectAnswerRules(request);
     const answerModeQualityBlock = getAnswerModeQualityBlock(request);
     const difficultyDistribution = getDifficultyDistribution(request);
     const questionCountPlan = getQuestionCountPlan(request);
     const vietnameseReadingSourceBlock = getVietnameseReadingSourceBlock(request);
+    const vietnameseScopeBlock = getVietnameseScopeBlock(request);
+    const structureSections = request.includeMatrix
+        ? `## I. MỤC TIÊU PHIẾU HỌC TẬP
+## II. MA TRẬN CÂU HỎI
+## III. ĐỀ BÀI
+## IV. ĐÁP ÁN VÀ HƯỚNG DẪN
+## V. GỢI Ý SỬ DỤNG NGẮN CHO GIÁO VIÊN`
+        : `## I. MỤC TIÊU PHIẾU HỌC TẬP
+## II. ĐỀ BÀI
+## III. ĐÁP ÁN VÀ HƯỚNG DẪN
+## IV. GỢI Ý SỬ DỤNG NGẮN CHO GIÁO VIÊN`;
 
     return `
 Hãy tạo phiếu bài tập ôn luyện chất lượng cao theo đúng thông tin sau:
@@ -323,22 +343,19 @@ Hãy tạo phiếu bài tập ôn luyện chất lượng cao theo đúng thông
 - Lớp: ${request.grade}
 - Bài/chủ đề: "${request.topic}"
 - Loại phiếu: ${exerciseTypeLabel}
-- Mức độ phiếu: ${difficultyLabel}
-- Đối tượng học sinh: ${studentTargetLabel}
+- Mức độ phù hợp: ${studentTargetLabel}
+- Thời lượng dự kiến: ${request.durationMinutes || 20} phút
 - Số lượng câu hỏi mong muốn: ${request.questionCount || 10} câu
 - Dạng bài cần ưu tiên/kết hợp: ${formatLabel}
 - Kiểu đáp án: ${answerModeLabel}
 - Có bảng ma trận nhỏ: ${request.includeMatrix ? 'Có' : 'Không'}
-- Có phần thử thách dành cho học sinh khá, giỏi: ${request.includeChallenge ? 'Có' : 'Không'}
-- Có gợi ý sử dụng cho giáo viên: ${request.includeTeacherGuide ? 'Có' : 'Không'}
-- Có mục học sinh tự đánh giá và PHHS theo dõi: ${request.includeSelfAssessment ? 'Có' : 'Không'}
 - Có liên hệ thực tế địa phương/vùng cao: ${request.includeLocalContext ? 'Có' : 'Không'}
 
+${vietnameseScopeBlock}
 ${subjectQualityBlock}
 ${subjectMinimumRequirements}
 ${subjectAnswerRules}
 ${answerModeQualityBlock}
-${DETAILED_ANSWER_LOCK_INSTRUCTION}
 ${KNOWLEDGE_AUDIT_INSTRUCTION}
 ${vietnameseReadingSourceBlock}
 
@@ -371,13 +388,9 @@ Bài/Chủ đề: ${request.topic}
 Loại phiếu: ${exerciseTypeLabel}
 Đối tượng: ${studentTargetLabel}
 
-## I. MỤC TIÊU PHIẾU HỌC TẬP
-## II. MA TRẬN CÂU HỎI
-## III. ĐỀ BÀI
-## IV. ĐÁP ÁN VÀ HƯỚNG DẪN CHI TIẾT CHO PHHS
-## V. GỢI Ý SỬ DỤNG CHO GIÁO VIÊN
-## VI. GỢI Ý PHỤ HUYNH THEO DÕI CON HỌC Ở NHÀ
-## VII. HỌC SINH TỰ ĐÁNH GIÁ
+${structureSections}
+
+Không tạo mục phụ huynh theo dõi hoặc học sinh tự đánh giá trong nội dung AI; bản làm bài sẽ được hệ thống bổ sung riêng khi xuất Word.
 
 Trước khi trả kết quả, hãy tự kiểm định nội bộ từng câu: đúng môn, đúng lớp, đúng chủ đề, đủ phân hóa, đủ dạng bài phù hợp môn, không sai kiến thức, không trùng lặp, không ký tự lạ, đáp án khớp đề, giải thích đủ để PHHS hướng dẫn con. Không hiển thị bảng kiểm định nội bộ trong phiếu.
 `;
@@ -401,8 +414,7 @@ export const generateWorksheet = async (request: WorksheetRequest, apiKey: strin
     const client = getGeminiClient(apiKey);
     const model = 'gemini-3-flash-preview';
 
-    const isReadingWorksheet = request.subject === 'Tiếng Việt';
-    const systemInstruction = isReadingWorksheet ? READING_SYSTEM_INSTRUCTION : SYSTEM_INSTRUCTION;
+    const systemInstruction = SYSTEM_INSTRUCTION;
     const userPrompt = buildWorksheetPrompt(request);
 
     try {
