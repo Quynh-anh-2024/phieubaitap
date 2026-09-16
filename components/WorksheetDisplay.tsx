@@ -25,7 +25,7 @@ interface WorksheetDisplayProps {
   onReset: () => void;
 }
 
-type ExportMode = 'teacher' | 'student_parent';
+type ExportMode = 'teacher' | 'student';
 
 type DocxBlock = Paragraph | Table;
 
@@ -337,14 +337,11 @@ const getTitleFromContent = (text: string): string => {
   return cleanPlainText(removeMarkdownHeadingPrefix(firstLine));
 };
 
-const buildStudentParentContent = (text: string): string => {
+const buildStudentContent = (text: string): string => {
   const title = getTitleFromContent(text);
   const objectives = removeLeadingSectionHeading(
     extractBetweenKeywords(text, ['MỤC TIÊU'], ['MA TRẬN', 'ĐỀ BÀI', 'ĐỌC HIỂU'])
   );
-
-  const answerIndexContent = extractBetweenKeywords(text, ['ĐÁP ÁN'], ['GỢI Ý SỬ DỤNG CHO GIÁO VIÊN', 'HỌC SINH TỰ ĐÁNH GIÁ']);
-  const answer = removeLeadingSectionHeading(answerIndexContent);
 
   let questionSection = extractBetweenKeywords(text, ['ĐỀ BÀI'], ['ĐÁP ÁN', 'GỢI Ý SỬ DỤNG CHO GIÁO VIÊN']);
   if (!questionSection) {
@@ -358,8 +355,6 @@ const buildStudentParentContent = (text: string): string => {
   const questions = removeLeadingSectionHeading(questionSection);
 
   const objectivesText = objectives || '- Ôn lại kiến thức trọng tâm của bài/chủ đề.\n- Luyện tập các dạng bài từ cơ bản đến vận dụng.\n- Tự kiểm tra kết quả sau khi hoàn thành.';
-  const answerText = answer || 'Giáo viên cần kiểm tra lại đáp án trong bản giáo viên trước khi gửi cho phụ huynh.';
-
   return `# ${title}
 
 Họ và tên: ............................................................    Lớp: ............
@@ -384,22 +379,9 @@ ${questions}
 □ Con cần thầy/cô hướng dẫn thêm.
 Câu con muốn hỏi lại thầy/cô: ........................................................................
 
-## V. PHỤ HUYNH THEO DÕI KẾT QUẢ
-Số câu con làm đúng: ........../.......... câu
-Những câu con làm tốt: ................................................................................
-Những câu con cần ôn lại: ..............................................................................
-Nhận xét của phụ huynh: ................................................................................
-Chữ ký phụ huynh: ........................................
-
-## VI. ĐÁP ÁN DÀNH CHO PHỤ HUYNH
-Phụ huynh chỉ đối chiếu đáp án sau khi học sinh đã tự hoàn thành bài làm.
-${answerText}
-
-## VII. GỢI Ý PHỤ HUYNH HỖ TRỢ CON
-- Không làm thay bài cho con; chỉ gợi ý để con tự sửa.
-- Nếu con sai nhiều câu cơ bản, cho con ôn lại kiến thức trọng tâm trong 5-10 phút.
-- Nếu con sai câu vận dụng, hỏi con: “Đề bài cho biết gì?”, “Đề bài hỏi gì?”, “Con cần làm bước nào trước?”.
-- Ghi lại câu con còn khó để trao đổi thêm với giáo viên khi cần.
+## V. NHẬN XÉT CỦA GIÁO VIÊN
+........................................................................................................
+........................................................................................................
 `;
 };
 
@@ -548,10 +530,10 @@ const WorksheetDisplay: React.FC<WorksheetDisplayProps> = ({ content, onReset })
   };
 
   const handleDownloadWord = async (mode: ExportMode) => {
-    const exportContent = mode === 'student_parent' ? buildStudentParentContent(content) : content;
+    const exportContent = mode === 'student' ? buildStudentContent(content) : content;
     const blocks = parseContentToDocxBlocks(exportContent, { addPageBreakBeforeAnswers: true });
     const doc = createWordDocument(blocks);
-    const filename = mode === 'student_parent' ? 'PhieuBaiTap_HocSinh_PHHS.docx' : 'PhieuBaiTap_GiaoVien.docx';
+    const filename = mode === 'student' ? 'PhieuBaiTap_BanLamBai.docx' : 'PhieuBaiTap_DapAn.docx';
     await saveBlobAsWord(doc, filename);
   };
 
@@ -577,16 +559,16 @@ const WorksheetDisplay: React.FC<WorksheetDisplayProps> = ({ content, onReset })
           <button
             onClick={() => handleDownloadWord('teacher')}
             className="flex-1 md:flex-none flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white border border-blue-600 rounded-lg hover:bg-blue-700 font-medium shadow-sm transition-all text-sm whitespace-nowrap"
-            title="Tải bản giáo viên: có mục tiêu, ma trận, đề bài, đáp án, hướng dẫn"
+            title="Tải bản đáp án: có đề bài, đáp án và hướng dẫn giáo viên"
           >
-            <FileText className="w-4 h-4" /> <span className="hidden sm:inline">Bản GV</span>
+            <FileText className="w-4 h-4" /> <span className="hidden sm:inline">Bản đáp án</span>
           </button>
           <button
-            onClick={() => handleDownloadWord('student_parent')}
+            onClick={() => handleDownloadWord('student')}
             className="flex-1 md:flex-none flex items-center justify-center gap-2 px-3 py-2 bg-emerald-600 text-white border border-emerald-600 rounded-lg hover:bg-emerald-700 font-medium shadow-sm transition-all text-sm whitespace-nowrap"
-            title="Tải bản học sinh + phụ huynh: có đề, tự đánh giá, phụ huynh theo dõi, đáp án ở cuối"
+            title="Tải bản làm bài cho học sinh, không chứa đáp án"
           >
-            <Users className="w-4 h-4" /> <span className="hidden sm:inline">HS + PHHS</span>
+            <Users className="w-4 h-4" /> <span className="hidden sm:inline">Bản làm bài</span>
           </button>
           <button
             onClick={onReset}

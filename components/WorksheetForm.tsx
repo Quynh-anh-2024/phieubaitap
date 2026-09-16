@@ -4,16 +4,16 @@ import {
   SUBJECTS_BY_GRADE,
   WorksheetRequest,
   ExerciseType,
-  DifficultyLevel,
   StudentTarget,
   AnswerMode,
   QuestionFormat,
   EXERCISE_TYPE_OPTIONS,
-  DIFFICULTY_OPTIONS,
   STUDENT_TARGET_OPTIONS,
   ANSWER_MODE_OPTIONS,
   READING_SOURCE_OPTIONS,
+  VIETNAMESE_SCOPE_OPTIONS,
   ReadingSource,
+  VietnameseScope,
   OptionItem,
 } from '../types';
 import { BookOpen, ClipboardList, GraduationCap, Layers, PenTool, Settings2, Sparkles } from 'lucide-react';
@@ -24,106 +24,67 @@ interface WorksheetFormProps {
 }
 
 type FormatPreset =
-  | 'diverse'
-  | 'multiple_choice_focus'
-  | 'basic_mix'
-  | 'matching_focus'
-  | 'short_answer_focus'
-  | 'real_context_focus'
-  | 'error_finding_focus'
-  | 'creative_focus';
+  | 'balanced'
+  | 'objective_focus'
+  | 'constructed_focus';
 
-const QUESTION_COUNTS = [6, 8, 10, 12, 15, 20];
+const DURATION_OPTIONS = [
+  { value: 10, label: '10 phút', description: 'Khoảng 5-6 câu, phù hợp kiểm tra nhanh.' },
+  { value: 20, label: '20 phút', description: 'Khoảng 8-10 câu, phù hợp củng cố bài học.' },
+  { value: 35, label: '35 phút', description: 'Khoảng 12 câu, phù hợp luyện tập và phân hóa.' },
+  { value: 45, label: '45 phút', description: 'Khoảng 15 câu, phù hợp ôn tập theo giai đoạn.' },
+];
+
+const QUESTION_COUNT_BY_DURATION: Record<number, number> = { 10: 6, 20: 10, 35: 12, 45: 15 };
 
 const FORMAT_PRESET_OPTIONS: OptionItem<FormatPreset>[] = [
   {
-    value: 'diverse',
-    label: 'Đa dạng dạng bài',
-    description: 'Trắc nghiệm, điền khuyết, đúng/sai, nối, tự luận, tình huống và vận dụng.',
+    value: 'balanced',
+    label: 'AI tự cân đối',
+    description: 'Tự chọn các dạng phù hợp nhất với môn học, mục tiêu và thời lượng.',
   },
   {
-    value: 'multiple_choice_focus',
+    value: 'objective_focus',
     label: 'Chủ yếu trắc nghiệm',
-    description: 'Phù hợp kiểm tra nhanh, chấm nhanh, câu hỏi ngắn.',
+    description: 'Ưu tiên trắc nghiệm, đúng/sai và điền khuyết để chấm nhanh.',
   },
   {
-    value: 'basic_mix',
-    label: 'Điền khuyết, đúng/sai',
-    description: 'Phù hợp củng cố kiến thức cơ bản, học sinh cần hỗ trợ.',
-  },
-  {
-    value: 'matching_focus',
-    label: 'Tăng bài nối cột',
-    description: 'Có bảng nối cột rõ ràng, dễ làm, dễ chấm.',
-  },
-  {
-    value: 'short_answer_focus',
-    label: 'Tăng tự luận ngắn',
-    description: 'Yêu cầu học sinh giải thích, trình bày ngắn gọn.',
-  },
-  {
-    value: 'real_context_focus',
-    label: 'Tăng tình huống thực tế',
-    description: 'Gắn bài học với đời sống, học tập và địa phương.',
-  },
-  {
-    value: 'error_finding_focus',
-    label: 'Tăng phát hiện lỗi sai',
-    description: 'Rèn tư duy phân tích, sửa lỗi và giải thích.',
-  },
-  {
-    value: 'creative_focus',
-    label: 'Tăng nâng cao, sáng tạo',
-    description: 'Phù hợp học sinh khá, giỏi hoặc phần thử thách.',
+    value: 'constructed_focus',
+    label: 'Tự luận và vận dụng',
+    description: 'Ưu tiên trình bày, tình huống thực tế, tìm lỗi và sáng tạo.',
   },
 ];
 
 const FORMAT_PRESET_MAP: Record<FormatPreset, QuestionFormat[]> = {
-  diverse: [
-    'multiple_choice',
-    'true_false',
-    'fill_blank',
-    'matching',
-    'ordering',
-    'short_answer',
-    'real_context',
-    'error_finding',
-  ],
-  multiple_choice_focus: ['multiple_choice', 'true_false', 'fill_blank', 'short_answer'],
-  basic_mix: ['fill_blank', 'true_false', 'matching', 'multiple_choice', 'short_answer'],
-  matching_focus: ['matching', 'fill_blank', 'true_false', 'ordering', 'short_answer'],
-  short_answer_focus: ['short_answer', 'fill_blank', 'real_context', 'error_finding', 'multiple_choice'],
-  real_context_focus: ['real_context', 'short_answer', 'error_finding', 'creative', 'multiple_choice'],
-  error_finding_focus: ['error_finding', 'real_context', 'short_answer', 'ordering', 'multiple_choice'],
-  creative_focus: ['creative', 'real_context', 'error_finding', 'short_answer', 'ordering'],
+  balanced: [],
+  objective_focus: ['multiple_choice', 'true_false', 'fill_blank'],
+  constructed_focus: ['short_answer', 'real_context', 'error_finding', 'creative'],
 };
 
-const DEFAULT_FORMAT_PRESET: FormatPreset = 'diverse';
-
-const getOptionLabel = <T extends string>(options: OptionItem<T>[], value: T) => {
-  return options.find((option) => option.value === value)?.label || value;
-};
+const DEFAULT_FORMAT_PRESET: FormatPreset = 'balanced';
 
 const getOptionDescription = <T extends string>(options: OptionItem<T>[], value: T) => {
   return options.find((option) => option.value === value)?.description || '';
 };
 
-const SelectField = <T extends string | number>({
-  label,
-  value,
-  onChange,
-  options,
-  icon,
-  hint,
-}: {
+type SelectFieldProps<T extends string | number> = {
   label: string;
   value: T;
   onChange: (value: T) => void;
   options: Array<{ value: T; label: string; description?: string }>;
   icon?: React.ReactNode;
   hint?: string;
-}) => (
-  <label className="block">
+};
+
+function SelectField<T extends string | number>({
+  label,
+  value,
+  onChange,
+  options,
+  icon,
+  hint,
+}: SelectFieldProps<T>) {
+  return <label className="block">
     <span className="flex items-center gap-2 text-sm font-extrabold text-slate-700 uppercase tracking-wide mb-2">
       {icon}
       {label}
@@ -143,8 +104,8 @@ const SelectField = <T extends string | number>({
       ))}
     </select>
     {hint && <span className="block mt-1.5 text-xs leading-relaxed text-slate-500">{hint}</span>}
-  </label>
-);
+  </label>;
+}
 
 const SectionTitle = ({
   icon,
@@ -169,16 +130,13 @@ const WorksheetForm: React.FC<WorksheetFormProps> = ({ onSubmit, isLoading }) =>
   const [subject, setSubject] = useState<string>('');
   const [topic, setTopic] = useState<string>('');
   const [exerciseType, setExerciseType] = useState<ExerciseType>('weekly_practice');
-  const [difficultyLevel, setDifficultyLevel] = useState<DifficultyLevel>('differentiated');
   const [studentTarget, setStudentTarget] = useState<StudentTarget>('mixed');
-  const [questionCount, setQuestionCount] = useState<number>(12);
+  const [durationMinutes, setDurationMinutes] = useState<number>(35);
   const [answerMode, setAnswerMode] = useState<AnswerMode>('explain');
   const [formatPreset, setFormatPreset] = useState<FormatPreset>(DEFAULT_FORMAT_PRESET);
-  const [includeMatrix, setIncludeMatrix] = useState<boolean>(true);
-  const [includeChallenge, setIncludeChallenge] = useState<boolean>(true);
-  const [includeTeacherGuide, setIncludeTeacherGuide] = useState<boolean>(true);
-  const [includeSelfAssessment, setIncludeSelfAssessment] = useState<boolean>(true);
+  const [includeMatrix, setIncludeMatrix] = useState<boolean>(false);
   const [includeLocalContext, setIncludeLocalContext] = useState<boolean>(false);
+  const [vietnameseScope, setVietnameseScope] = useState<VietnameseScope>('language');
   const [readingSource, setReadingSource] = useState<ReadingSource>('auto_new');
   const [readingText, setReadingText] = useState<string>('');
   const [readingSourceNote, setReadingSourceNote] = useState<string>('');
@@ -189,22 +147,14 @@ const WorksheetForm: React.FC<WorksheetFormProps> = ({ onSubmit, isLoading }) =>
 
   const preferredFormats = FORMAT_PRESET_MAP[formatPreset];
   const availableSubjects = SUBJECTS_BY_GRADE[grade];
-  const availableExerciseTypes = EXERCISE_TYPE_OPTIONS.filter(
-    (option) => option.value !== 'reading' || subject === 'Tiếng Việt'
-  );
   const isVietnamese = subject === 'Tiếng Việt';
+  const usesReadingText = isVietnamese && (vietnameseScope === 'reading' || vietnameseScope === 'comprehensive');
 
   useEffect(() => {
     if (!availableSubjects.includes(subject)) {
       setSubject(availableSubjects[0]);
     }
   }, [grade, availableSubjects, subject]);
-
-  useEffect(() => {
-    if (subject !== 'Tiếng Việt' && exerciseType === 'reading') {
-      setExerciseType('weekly_practice');
-    }
-  }, [subject, exerciseType]);
 
   useEffect(() => {
     if (subject !== 'Tiếng Việt') {
@@ -224,6 +174,12 @@ const WorksheetForm: React.FC<WorksheetFormProps> = ({ onSubmit, isLoading }) =>
     }
   }, [subject, grade, readingBookGrade]);
 
+  useEffect(() => {
+    if (exerciseType === 'quick_test' && durationMinutes > 20) setDurationMinutes(10);
+    if (exerciseType === 'review' && durationMinutes < 35) setDurationMinutes(45);
+    setIncludeMatrix(exerciseType === 'review');
+  }, [exerciseType]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!topic.trim()) return;
@@ -233,54 +189,33 @@ const WorksheetForm: React.FC<WorksheetFormProps> = ({ onSubmit, isLoading }) =>
       subject,
       topic: topic.trim(),
       exerciseType,
-      difficultyLevel,
       studentTarget,
-      questionCount,
+      durationMinutes,
+      questionCount: QUESTION_COUNT_BY_DURATION[durationMinutes] || 10,
       answerMode,
-      preferredFormats: preferredFormats.length ? preferredFormats : FORMAT_PRESET_MAP[DEFAULT_FORMAT_PRESET],
+      preferredFormats,
       includeMatrix,
-      includeChallenge,
-      includeTeacherGuide,
-      includeSelfAssessment,
       includeLocalContext,
-      readingSource: isVietnamese ? readingSource : undefined,
-      readingText: isVietnamese ? readingText.trim() : '',
-      readingSourceNote: isVietnamese ? readingSourceNote.trim() : '',
-      readingBookGrade: isVietnamese ? readingBookGrade.trim() : '',
-      readingBookYear: isVietnamese ? readingBookYear.trim() : '',
-      readingBookTitle: isVietnamese ? readingBookTitle.trim() : '',
-      readingLessonTitle: isVietnamese ? readingLessonTitle.trim() : '',
+      vietnameseScope: isVietnamese ? vietnameseScope : undefined,
+      readingSource: usesReadingText ? readingSource : undefined,
+      readingText: usesReadingText ? readingText.trim() : '',
+      readingSourceNote: usesReadingText ? readingSourceNote.trim() : '',
+      readingBookGrade: usesReadingText ? readingBookGrade.trim() : '',
+      readingBookYear: usesReadingText ? readingBookYear.trim() : '',
+      readingBookTitle: usesReadingText ? readingBookTitle.trim() : '',
+      readingLessonTitle: usesReadingText ? readingLessonTitle.trim() : '',
       readingCitationLine:
-        isVietnamese && readingSource === 'verified_textbook_excerpt' && readingBookGrade.trim() && readingBookYear.trim()
+        usesReadingText && readingSource === 'verified_textbook_excerpt' && readingBookGrade.trim() && readingBookYear.trim()
           ? `Trích từ SGK Tiếng Việt lớp ${readingBookGrade.trim()}, năm ${readingBookYear.trim()}`
           : '',
-      lockReadingSource: isVietnamese,
+      lockReadingSource: usesReadingText,
     });
   };
 
   const gradeOptions = Object.values(GradeLevel).map((item) => ({ value: item, label: `Lớp ${item}` }));
   const subjectOptions = availableSubjects.map((item) => ({ value: item, label: item }));
-  const questionCountOptions = QUESTION_COUNTS.map((item) => ({ value: item, label: `${item} câu` }));
-
-  const summaryItems = [
-    { label: 'Môn - Lớp', value: `${subject || 'Chưa chọn'} - Lớp ${grade}` },
-    { label: 'Loại phiếu', value: getOptionLabel(EXERCISE_TYPE_OPTIONS, exerciseType) },
-    { label: 'Mức độ', value: getOptionLabel(DIFFICULTY_OPTIONS, difficultyLevel) },
-    { label: 'Đối tượng', value: getOptionLabel(STUDENT_TARGET_OPTIONS, studentTarget) },
-    { label: 'Số câu', value: `${questionCount} câu` },
-    { label: 'Dạng bài', value: getOptionLabel(FORMAT_PRESET_OPTIONS, formatPreset) },
-    { label: 'Đáp án', value: getOptionLabel(ANSWER_MODE_OPTIONS, answerMode) },
-    ...(isVietnamese ? [{ label: 'Nguồn đọc hiểu', value: getOptionLabel(READING_SOURCE_OPTIONS, readingSource) }] : []),
-    ...(isVietnamese && readingSource === 'verified_textbook_excerpt'
-      ? [{ label: 'Trích nguồn', value: readingBookYear ? `SGK lớp ${readingBookGrade}, năm ${readingBookYear}` : 'Chưa điền năm xuất bản' }]
-      : []),
-  ];
-
   const advancedOptions = [
     { checked: includeMatrix, setter: setIncludeMatrix, label: 'Có bảng ma trận trong bản giáo viên' },
-    { checked: includeChallenge, setter: setIncludeChallenge, label: 'Có phần thử thách' },
-    { checked: includeTeacherGuide, setter: setIncludeTeacherGuide, label: 'Có gợi ý sử dụng cho giáo viên' },
-    { checked: includeSelfAssessment, setter: setIncludeSelfAssessment, label: 'Có học sinh tự đánh giá và PHHS theo dõi' },
     { checked: includeLocalContext, setter: setIncludeLocalContext, label: 'Liên hệ thực tế địa phương/vùng cao' },
   ];
 
@@ -311,7 +246,7 @@ const WorksheetForm: React.FC<WorksheetFormProps> = ({ onSubmit, isLoading }) =>
           />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <SelectField
+            <SelectField<GradeLevel>
               label="Khối lớp"
               value={grade}
               onChange={(value) => {
@@ -323,7 +258,7 @@ const WorksheetForm: React.FC<WorksheetFormProps> = ({ onSubmit, isLoading }) =>
               options={gradeOptions}
               icon={<GraduationCap className="w-4 h-4 text-teal-500" />}
             />
-            <SelectField
+            <SelectField<string>
               label="Môn học"
               value={subject}
               onChange={setSubject}
@@ -341,7 +276,7 @@ const WorksheetForm: React.FC<WorksheetFormProps> = ({ onSubmit, isLoading }) =>
               type="text"
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
-              placeholder={exerciseType === 'reading' ? 'Ví dụ: Tuần 20 - Ngày tết quê em...' : 'Ví dụ: Ôn tập bảng nhân 7, bảng chia 7...'}
+              placeholder={usesReadingText ? 'Ví dụ: Ngày Tết quê em...' : 'Ví dụ: Ôn tập bảng nhân 7, bảng chia 7...'}
               className="w-full min-h-[54px] px-4 py-3 bg-white border-2 border-slate-200 rounded-2xl focus:ring-4 focus:ring-teal-100 focus:border-teal-400 outline-none transition-all placeholder:text-slate-400 text-lg shadow-inner font-medium"
               required
             />
@@ -350,20 +285,32 @@ const WorksheetForm: React.FC<WorksheetFormProps> = ({ onSubmit, isLoading }) =>
           {isVietnamese && (
             <div className="mt-4 rounded-3xl border-2 border-amber-100 bg-amber-50/70 p-4">
               <div className="mb-3">
-                <p className="text-sm font-black uppercase tracking-wide text-amber-800">Nguồn ngữ liệu đọc hiểu Tiếng Việt</p>
+                <p className="text-sm font-black uppercase tracking-wide text-amber-800">Phạm vi ôn tập Tiếng Việt</p>
                 <p className="mt-1 text-xs leading-relaxed text-amber-700">
-                  Khóa chuẩn dữ liệu: bài đọc có thể theo phong cách cũ, dân gian hoặc do giáo viên dán vào; phần kiến thức và câu hỏi vẫn bám Kết nối tri thức hiện hành.
+                  Chọn đúng nội dung cần luyện; nguồn bài đọc chỉ xuất hiện khi phiếu có phần đọc hiểu.
                 </p>
               </div>
-              <SelectField
-                label="Nguồn bài đọc hiểu"
-                value={readingSource}
-                onChange={setReadingSource}
-                options={READING_SOURCE_OPTIONS}
-                hint={getOptionDescription(READING_SOURCE_OPTIONS, readingSource)}
+              <SelectField<VietnameseScope>
+                label="Nội dung cần luyện"
+                value={vietnameseScope}
+                onChange={setVietnameseScope}
+                options={VIETNAMESE_SCOPE_OPTIONS}
+                hint={getOptionDescription(VIETNAMESE_SCOPE_OPTIONS, vietnameseScope)}
               />
 
-              {(readingSource === 'teacher_provided' || readingSource === 'verified_textbook_excerpt') && (
+              {usesReadingText && (
+                <div className="mt-4">
+                  <SelectField<ReadingSource>
+                    label="Nguồn bài đọc hiểu"
+                    value={readingSource}
+                    onChange={setReadingSource}
+                    options={READING_SOURCE_OPTIONS}
+                    hint={getOptionDescription(READING_SOURCE_OPTIONS, readingSource)}
+                  />
+                </div>
+              )}
+
+              {usesReadingText && (readingSource === 'teacher_provided' || readingSource === 'verified_textbook_excerpt') && (
                 <div className="mt-4 space-y-4">
                   <label className="block">
                     <span className="flex items-center gap-2 text-sm font-extrabold text-slate-700 uppercase tracking-wide mb-2">
@@ -393,7 +340,7 @@ const WorksheetForm: React.FC<WorksheetFormProps> = ({ onSubmit, isLoading }) =>
                         Thông tin trích nguồn hiển thị dưới bài đọc
                       </p>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <SelectField
+                        <SelectField<string>
                           label="SGK lớp"
                           value={readingBookGrade}
                           onChange={setReadingBookGrade}
@@ -449,18 +396,20 @@ const WorksheetForm: React.FC<WorksheetFormProps> = ({ onSubmit, isLoading }) =>
                 </div>
               )}
 
-              <label className="block mt-4">
-                <span className="flex items-center gap-2 text-sm font-extrabold text-slate-700 uppercase tracking-wide mb-2">
-                  Ghi chú nguồn / yêu cầu thêm
-                </span>
-                <input
-                  type="text"
-                  value={readingSourceNote}
-                  onChange={(e) => setReadingSourceNote(e.target.value)}
-                  placeholder="Ví dụ: văn bản ngắn về quê hương, giọng văn giản dị như SGK cũ, có từ chỉ đặc điểm..."
-                  className="w-full min-h-[50px] px-4 py-3 bg-white border-2 border-slate-200 rounded-2xl focus:ring-4 focus:ring-amber-100 focus:border-amber-400 outline-none transition-all placeholder:text-slate-400 text-base shadow-inner font-medium"
-                />
-              </label>
+              {usesReadingText && (
+                <label className="block mt-4">
+                  <span className="flex items-center gap-2 text-sm font-extrabold text-slate-700 uppercase tracking-wide mb-2">
+                    Ghi chú nguồn / yêu cầu thêm
+                  </span>
+                  <input
+                    type="text"
+                    value={readingSourceNote}
+                    onChange={(e) => setReadingSourceNote(e.target.value)}
+                    placeholder="Ví dụ: văn bản ngắn về quê hương, giọng văn giản dị, có từ chỉ đặc điểm..."
+                    className="w-full min-h-[50px] px-4 py-3 bg-white border-2 border-slate-200 rounded-2xl focus:ring-4 focus:ring-amber-100 focus:border-amber-400 outline-none transition-all placeholder:text-slate-400 text-base shadow-inner font-medium"
+                  />
+                </label>
+              )}
             </div>
           )}
         </section>
@@ -469,46 +418,39 @@ const WorksheetForm: React.FC<WorksheetFormProps> = ({ onSubmit, isLoading }) =>
           <SectionTitle
             icon={<ClipboardList className="w-5 h-5" />}
             title="2. Cấu hình phiếu"
-            description="Các mục chính được gom thành list sổ xuống để dễ nhìn và tránh rối giao diện."
+            description="Chọn mục đích, mức phù hợp và thời lượng. App sẽ tự cân đối số câu."
           />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <SelectField
+            <SelectField<ExerciseType>
               label="Loại phiếu"
               value={exerciseType}
               onChange={setExerciseType}
-              options={availableExerciseTypes}
+              options={EXERCISE_TYPE_OPTIONS}
               hint={getOptionDescription(EXERCISE_TYPE_OPTIONS, exerciseType)}
             />
-            <SelectField
-              label="Mức độ phiếu"
-              value={difficultyLevel}
-              onChange={setDifficultyLevel}
-              options={DIFFICULTY_OPTIONS}
-              hint={getOptionDescription(DIFFICULTY_OPTIONS, difficultyLevel)}
-            />
-            <SelectField
-              label="Đối tượng học sinh"
+            <SelectField<StudentTarget>
+              label="Mức độ phù hợp"
               value={studentTarget}
               onChange={setStudentTarget}
               options={STUDENT_TARGET_OPTIONS}
               hint={getOptionDescription(STUDENT_TARGET_OPTIONS, studentTarget)}
             />
-            <SelectField
-              label="Số lượng câu"
-              value={questionCount}
-              onChange={setQuestionCount}
-              options={questionCountOptions}
-              hint="Mặc định 12 câu phù hợp phiếu phân hóa. Kiểm tra nhanh có thể chọn 6 hoặc 8 câu."
+            <SelectField<number>
+              label="Thời lượng dự kiến"
+              value={durationMinutes}
+              onChange={setDurationMinutes}
+              options={DURATION_OPTIONS}
+              hint={DURATION_OPTIONS.find((item) => item.value === durationMinutes)?.description}
             />
-            <SelectField
+            <SelectField<FormatPreset>
               label="Dạng bài ưu tiên"
               value={formatPreset}
               onChange={setFormatPreset}
               options={FORMAT_PRESET_OPTIONS}
               hint={getOptionDescription(FORMAT_PRESET_OPTIONS, formatPreset)}
             />
-            <SelectField
+            <SelectField<AnswerMode>
               label="Kiểu đáp án"
               value={answerMode}
               onChange={setAnswerMode}
@@ -548,29 +490,6 @@ const WorksheetForm: React.FC<WorksheetFormProps> = ({ onSubmit, isLoading }) =>
           </div>
         </details>
 
-        <section className="bg-gradient-to-br from-teal-50 to-orange-50 border-2 border-teal-100 rounded-3xl p-4 md:p-6 shadow-sm">
-          <SectionTitle
-            icon={<Sparkles className="w-5 h-5" />}
-            title="3. Tóm tắt phiếu sẽ tạo"
-            description="Kiểm tra nhanh các lựa chọn trước khi bấm tạo phiếu."
-          />
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {summaryItems.map((item) => (
-              <div key={item.label} className="bg-white/90 rounded-2xl border border-white p-3 shadow-sm">
-                <p className="text-[11px] uppercase tracking-wide font-black text-slate-400">{item.label}</p>
-                <p className="text-sm font-extrabold text-slate-800 mt-1 leading-snug">{item.value}</p>
-              </div>
-            ))}
-          </div>
-
-          {topic.trim() && (
-            <div className="mt-4 p-3 rounded-2xl bg-white/80 border border-white text-sm text-slate-700">
-              <span className="font-black text-teal-700">Bài/chủ đề:</span> {topic.trim()}
-            </div>
-          )}
-        </section>
-
         <button
           type="submit"
           disabled={isLoading || !topic.trim()}
@@ -591,7 +510,7 @@ const WorksheetForm: React.FC<WorksheetFormProps> = ({ onSubmit, isLoading }) =>
           ) : (
             <span className="flex items-center justify-center gap-2 uppercase tracking-wider">
               <Sparkles className="w-6 h-6" />
-              {exerciseType === 'reading' ? 'Tạo Phiếu Đọc Hiểu' : 'Tạo Phiếu Bài Tập'}
+              Tạo Phiếu Bài Tập
             </span>
           )}
         </button>
