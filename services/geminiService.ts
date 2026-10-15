@@ -1,450 +1,194 @@
-import { GoogleGenAI } from "@google/genai";
-import { SYSTEM_INSTRUCTION, SUBJECT_QUALITY_RULES, SUBJECT_ANSWER_RULES, KNOWLEDGE_AUDIT_INSTRUCTION } from '../constants';
+import { GoogleGenAI } from '@google/genai';
 import {
-    WorksheetRequest,
-    EXERCISE_TYPE_OPTIONS,
-    STUDENT_TARGET_OPTIONS,
-    ANSWER_MODE_OPTIONS,
-    QUESTION_FORMAT_OPTIONS,
-    READING_SOURCE_OPTIONS,
-    QuestionFormat,
+  WorksheetRequest,
+  EXERCISE_TYPE_OPTIONS,
+  STUDENT_TARGET_OPTIONS,
+  ANSWER_MODE_OPTIONS,
 } from '../types';
 
-const getGeminiClient = (apiKey: string) => {
-    if (!apiKey) {
-        throw new Error("API Key is missing. Please provide a valid API Key.");
-    }
-    return new GoogleGenAI({ apiKey });
+const getApiKey = (customKey?: string): string => {
+  if (customKey && customKey.trim()) return customKey.trim();
+
+  if (typeof window !== 'undefined') {
+    const localKey =
+      localStorage.getItem('GEMINI_API_KEY') ||
+      localStorage.getItem('gemini_api_key') ||
+      localStorage.getItem('api_key');
+    if (localKey && localKey.trim()) return localKey.trim();
+  }
+
+  const viteKey =
+    typeof import.meta !== 'undefined' && (import.meta as any).env
+      ? (import.meta as any).env.VITE_GEMINI_API_KEY || (import.meta as any).env.VITE_API_KEY
+      : '';
+  if (viteKey) return String(viteKey).trim();
+
+  const nodeKey =
+    typeof process !== 'undefined' && process.env
+      ? process.env.GEMINI_API_KEY || process.env.API_KEY
+      : '';
+  return nodeKey ? String(nodeKey).trim() : '';
 };
 
-const getOptionLabel = <T extends string>(options: { value: T; label: string }[], value: T): string => {
-    return options.find((option) => option.value === value)?.label || value;
+const FORMAT_LABELS: Record<string, string> = {
+  multiple_choice: 'Trắc nghiệm 4 lựa chọn (A, B, C, D)',
+  true_false: 'Đúng / Sai',
+  fill_blank: 'Điền khuyết / Điền vào chỗ chấm',
+  matching: 'Nối cột A với cột B (trình bày bằng bảng Markdown 2 cột: | Cột A | Cột B |)',
+  short_answer: 'Tự luận ngắn / Trình bày lời giải',
+  real_context: 'Bài tập gắn với tình huống thực tiễn',
+  error_finding: 'Tìm lỗi sai và sửa lại cho đúng',
+  creative: 'Vận dụng sáng tạo',
 };
 
-const SUBJECT_MINIMUM_REQUIREMENTS: Record<string, string> = {
-    'Toán': `
-YÊU CẦU TỐI THIỂU MÔN TOÁN:
-- Có câu tính toán cơ bản hoặc điền số.
-- Có ít nhất 1 bài toán có lời văn nếu phiếu từ 8 câu trở lên.
-- Có câu phân biệt/giải thích quy tắc hoặc nhận diện lỗi thường gặp.
-- Nếu phiếu phân hóa hoặc nâng cao, có câu phát hiện lỗi sai, đặt đề toán hoặc bài toán ngược.
-`,
-    'Tiếng Việt': `
-YÊU CẦU TỐI THIỂU MÔN TIẾNG VIỆT:
-- Có câu đọc hiểu/tìm chi tiết hoặc hiểu nội dung nếu chủ đề cho phép.
-- Có bài luyện từ và câu: tìm từ, đặt câu, dấu câu, sửa câu hoặc nối từ với nghĩa.
-- Có phần viết câu/đoạn ngắn nếu phiếu từ 8 câu trở lên hoặc giáo viên chọn vận dụng/sáng tạo.
-- Câu hỏi phải có liên hệ hoặc suy luận ở phần vận dụng.
-`,
-    'Tự nhiên và Xã hội': `
-YÊU CẦU TỐI THIỂU MÔN TỰ NHIÊN VÀ XÃ HỘI:
-- Có câu nhận biết sự vật/hiện tượng/hành vi.
-- Có câu phân biệt hoặc giải thích đơn giản.
-- Có ít nhất 1 tình huống đời sống về an toàn, vệ sinh, gia đình, trường học hoặc môi trường nếu phiếu từ 8 câu trở lên.
-`,
-    'Đạo đức': `
-YÊU CẦU TỐI THIỂU MÔN ĐẠO ĐỨC:
-- Có câu nhận diện hành vi đúng/sai.
-- Có câu giải thích vì sao hành vi nên hoặc không nên làm.
-- Có ít nhất 1 tình huống xử lí và 1 câu liên hệ bản thân nếu phiếu từ 8 câu trở lên.
-`,
-    'Công nghệ': `
-YÊU CẦU TỐI THIỂU MÔN CÔNG NGHỆ:
-- Có câu về dụng cụ/vật liệu/công dụng.
-- Có câu sắp xếp hoặc hoàn thiện quy trình.
-- Có câu về an toàn khi thực hành hoặc lựa chọn vật liệu/cách làm phù hợp.
-- Nếu phiếu nâng cao, có câu đề xuất sản phẩm/cải tiến sản phẩm.
-`,
-    'Tin học': `
-YÊU CẦU TỐI THIỂU MÔN TIN HỌC:
-- Có câu nhận biết công cụ/lệnh/biểu tượng hoặc thao tác.
-- Có câu sắp xếp quy trình, chọn thao tác đúng hoặc dự đoán kết quả.
-- Có câu an toàn số hoặc bảo vệ thông tin cá nhân nếu phù hợp chủ đề.
-- Nếu chủ đề liên quan Scratch/lập trình, bắt buộc có câu sắp xếp lệnh, tìm lỗi hoặc dự đoán kết quả chương trình.
-- Nếu phiếu nâng cao/phân hóa, có câu thiết kế sản phẩm số hoặc kịch bản thao tác.
-`,
-    'Khoa học': `
-YÊU CẦU TỐI THIỂU MÔN KHOA HỌC:
-- Có câu nhận biết/ phân loại sự vật, hiện tượng hoặc bộ phận.
-- Có câu giải thích vì sao hoặc nêu chức năng.
-- Có ít nhất 1 tình huống vận dụng về an toàn, sức khỏe, môi trường hoặc hiện tượng đời sống.
-- Nếu phiếu nâng cao, có câu dự đoán kết quả thí nghiệm hoặc đề xuất cách kiểm chứng.
-`,
-    'Lịch sử và Địa lý': `
-YÊU CẦU TỐI THIỂU MÔN LỊCH SỬ VÀ ĐỊA LÝ:
-- Có câu về nhân vật/sự kiện/địa danh/đặc điểm cơ bản theo chủ đề.
-- Có câu hiểu ý nghĩa, nguyên nhân - kết quả hoặc đặc điểm vùng miền.
-- Có câu liên hệ địa phương, đọc thông tin/bảng/lược đồ dạng mô tả hoặc giới thiệu quê hương nếu phù hợp.
-`,
+const buildImageInstruction = (request: WorksheetRequest): string => {
+  const mode = request.imageMode || 'auto';
+  if (mode === 'none') {
+    return `- KHÔNG chèn hình vẽ hay mã SVG vào đề bài.`;
+  }
+
+  const ratioGuide =
+    mode === 'visual_focus'
+      ? 'Ưu tiên sinh hình vẽ trực quan cho khoảng 40% - 60% số câu hỏi phù hợp (đặc biệt các bài đếm số lượng, nhận diện hình phẳng/hình khối, xem đồng hồ, sơ đồ tách - gộp, thiết bị máy tính, biểu tượng phần mềm, biển báo...).'
+      : 'Chỉ sinh hình vẽ minh họa (khoảng 2 đến 4 câu trong phiếu) tại những câu thực sự cần hình ảnh trực quan để học sinh quan sát và giải bài (ví dụ: hình học, đo độ dài, xem đồng hồ, đếm đồ vật, nhận diện thiết bị/nút lệnh trong Tin học - Công nghệ, sơ đồ tư duy đơn giản). Không vẽ hình cho các câu tính nhẩm hoặc lý thuyết thuần túy.';
+
+  return `- QUY TẮC VẼ HÌNH MINH HỌA TRỰC QUAN BẰNG MÃ SVG:
+  + ${ratioGuide}
+  + Khi câu hỏi có hình minh họa, hãy đặt khối mã \`\`\`svg ... \`\`\` ngay bên dưới dòng đề bài của câu hỏi đó (trước các phương án A, B, C, D hoặc dòng chấm trả lời).
+  + Quy chuẩn kỹ thuật bắt buộc cho mỗi khối \`\`\`svg:
+    1. Thẻ gốc phải là <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 150"> (hoặc chiều cao 140-180 tùy nội dung), sử dụng nét vẽ rõ ràng (stroke="#1e293b" stroke-width="2"), màu sắc tươi sáng nhưng tương phản cao để khi in trắng đen trên giấy A4 vẫn nhìn rõ.
+    2. Chữ viết hoặc số bên trong hình (nếu có) dùng font-family="Arial, sans-serif" font-size="14" font-weight="bold", có dấu tiếng Việt chuẩn, tuyệt đối không để chữ đè lên nét vẽ.
+    3. TUYỆT ĐỐI KHÔNG ghi sẵn đáp án đúng lộ ra bên trong hình vẽ ở phần Đề bài.
+    4. Đóng thẻ </svg> và đóng khối \`\`\` đầy đủ.`;
 };
 
-const getDifficultyDistribution = (request: WorksheetRequest): string => {
-    if (request.studentTarget === 'support') {
-        return 'Phân bổ ưu tiên: khoảng 60% Nhận biết, 30% Thông hiểu, 10% Vận dụng nhẹ; có mẫu/gợi ý ở câu khó.';
-    }
-    if (request.studentTarget === 'good') {
-        return 'Phân bổ ưu tiên: khoảng 20% Nhận biết, 30% Thông hiểu, 35% Vận dụng, 15% Thử thách; tăng giải thích, tìm lỗi, sáng tạo.';
-    }
-    if (request.studentTarget === 'mixed') {
-        return 'Phân bổ bắt buộc: chia rõ A. Củng cố cơ bản, B. Luyện tập chuẩn, C. Vận dụng, D. Thử thách nếu có; mỗi phần phải khác nhau rõ về yêu cầu tư duy.';
-    }
-    return 'Phân bổ ưu tiên: khoảng 40% Nhận biết, 35% Thông hiểu, 25% Vận dụng.';
+const buildVietnameseInstruction = (request: WorksheetRequest): string => {
+  if (request.subject !== 'Tiếng Việt') return '';
+
+  const scope = request.vietnameseScope || 'language';
+  if (scope === 'language') {
+    return `- PHẠM VI TIẾNG VIỆT: Tập trung luyện từ và câu, chính tả, ngữ pháp và viết câu/đoạn ngắn theo chủ đề "${request.topic}". Không bắt buộc tạo bài đọc dài.`;
+  }
+
+  const source = request.readingSource || 'auto_new';
+  let sourceGuide = '';
+
+  if (
+    (source === 'teacher_provided' || source === 'verified_textbook_excerpt') &&
+    request.readingText?.trim()
+  ) {
+    sourceGuide = `- NGỮ LIỆU ĐỌC HIỂU BẮT BUỘC:
+  + Sử dụng NGUYÊN VĂN văn bản dưới đây để đưa vào đầu phần ĐỀ BÀI (không tự ý cắt xén hay sửa đổi nội dung):
+"""
+${request.readingText.trim()}
+"""
+  + ${
+    request.readingCitationLine
+      ? `Ngay bên dưới bài đọc, ghi chính xác dòng trích nguồn in nghiêng: *(${request.readingCitationLine}${
+          request.readingBookTitle ? ` - ${request.readingBookTitle}` : ''
+        }${request.readingLessonTitle ? `, bài: ${request.readingLessonTitle}` : ''})*`
+      : 'Giữ nguyên văn bản thầy/cô đã cung cấp.'
+  }`;
+  } else if (source === 'old_textbook_style') {
+    sourceGuide = `- NGỮ LIỆU ĐỌC HIỂU: Sáng tác một văn bản đọc hiểu ngắn (khoảng 120 - 220 chữ tùy khối lớp ${request.grade}) mang đậm phong cách Sách giáo khoa Tiếng Việt tiểu học giai đoạn trước năm 2006: câu văn trong sáng, giản dị, giàu hình ảnh thiên nhiên, quê hương, tình cảm ông bà - cha mẹ - thầy trò - bạn bè, giàu tính nhân văn. Lưu ý: Không bịa đặt dòng trích dẫn số trang hay năm xuất bản giả.`;
+  } else {
+    sourceGuide = `- NGỮ LIỆU ĐỌC HIỂU: Tự biên soạn một văn bản đọc hiểu mới (khoảng 100 - 200 chữ phù hợp học sinh lớp ${request.grade}), ngôn từ chuẩn mực, gần gũi và an toàn bản quyền.`;
+  }
+
+  const noteGuide = request.readingSourceNote
+    ? `\n  + Yêu cầu bổ sung cho ngữ liệu đọc: ${request.readingSourceNote}`
+    : '';
+
+  return `${sourceGuide}${noteGuide}
+- CẤU TRÚC ĐỀ TIẾNG VIỆT: ${
+    scope === 'comprehensive'
+      ? 'Gồm bài đọc hiểu, hệ thống câu hỏi Đọc hiểu (Mức 1, 2, 3), phần Luyện từ và câu và 1 bài tập Viết sáng tạo ngắn.'
+      : 'Đặt văn bản đọc ở đầu phần Đề bài, theo sau là các câu hỏi Đọc hiểu bám sát chi tiết và nội dung chính của văn bản.'
+  }`;
 };
 
-const getQuestionCountPlan = (request: WorksheetRequest): string => {
-    const count = request.questionCount || 10;
-    if (count <= 6) {
-        return 'Gợi ý chia câu: 2 câu Nhận biết, 2 câu Thông hiểu, 2 câu Vận dụng; nếu là kiểm tra nhanh thì không cần phần thử thách dài.';
-    }
-    if (count <= 8) {
-        return 'Gợi ý chia câu: 3 câu Cơ bản, 2 câu Thông hiểu, 2 câu Vận dụng, 1 câu Thử thách nếu giáo viên yêu cầu.';
-    }
-    if (count <= 10) {
-        return 'Gợi ý chia câu: 3 câu Cơ bản, 3 câu Chuẩn/Thông hiểu, 3 câu Vận dụng, 1 câu Thử thách nếu có.';
-    }
-    if (count <= 12) {
-        return 'Gợi ý chia câu: 3 câu Cơ bản, 4 câu Luyện tập chuẩn, 3 câu Vận dụng, 2 câu Thử thách nếu có.';
-    }
-    if (count <= 15) {
-        return 'Gợi ý chia câu: 4 câu Cơ bản, 5 câu Luyện tập chuẩn, 4 câu Vận dụng, 2 câu Thử thách nếu có.';
-    }
-    return 'Gợi ý chia câu: 5-6 câu Cơ bản, 6-7 câu Luyện tập chuẩn, 5 câu Vận dụng, 2 câu Thử thách nếu có; tránh phiếu quá dài gây mệt cho học sinh.';
-};
+export const generateWorksheet = async (
+  request: WorksheetRequest,
+  customApiKey?: string
+): Promise<string> => {
+  const apiKey = getApiKey(customApiKey);
+  if (!apiKey) {
+    throw new Error(
+      'Chưa tìm thấy Gemini API Key. Vui lòng kiểm tra cấu hình biến môi trường (VITE_GEMINI_API_KEY / GEMINI_API_KEY).'
+    );
+  }
 
-const getFormatLabels = (formats: QuestionFormat[]): string => {
-    if (!formats.length) return 'AI tự chọn 3-4 dạng bài phù hợp nhất với môn học và mục tiêu; không cố nhồi tất cả dạng bài';
-    return formats
-        .map((format) => getOptionLabel(QUESTION_FORMAT_OPTIONS, format))
-        .join(', ');
-};
+  const ai = new GoogleGenAI({ apiKey });
 
-const getSelectedFormats = (request: WorksheetRequest): QuestionFormat[] => {
-    const selected = request.preferredFormats || [];
-    return Array.from(new Set(selected));
-};
+  const exerciseLabel =
+    EXERCISE_TYPE_OPTIONS.find((item) => item.value === request.exerciseType)?.label ||
+    request.exerciseType;
+  const targetLabel =
+    STUDENT_TARGET_OPTIONS.find((item) => item.value === request.studentTarget)?.label ||
+    request.studentTarget;
+  const answerLabel =
+    ANSWER_MODE_OPTIONS.find((item) => item.value === request.answerMode)?.label ||
+    request.answerMode;
 
-const getSubjectQualityBlock = (subject: string): string => {
-    return SUBJECT_QUALITY_RULES[subject] || 'Áp dụng quy tắc chung: đúng lớp, đúng chủ đề, phân hóa rõ, đa dạng dạng bài, có đáp án chấm được.';
-};
+  const preferredFormatText =
+    request.preferredFormats && request.preferredFormats.length > 0
+      ? request.preferredFormats.map((f) => FORMAT_LABELS[f] || f).join('; ')
+      : 'Phối hợp hài hòa giữa Trắc nghiệm khách quan, Đúng/Sai, Nối cột (Bảng 2 cột Cột A - Cột B), Điền khuyết và Tự luận vận dụng.';
 
-const getSubjectMinimumRequirements = (request: WorksheetRequest): string => {
-    if (request.subject !== 'Tiếng Việt') {
-        return SUBJECT_MINIMUM_REQUIREMENTS[request.subject] || 'Yêu cầu tối thiểu: có câu nhận biết, thông hiểu, vận dụng và đáp án rõ ràng.';
-    }
+  const localContextText = request.includeLocalContext
+    ? `- LIÊN HỆ THỰC TIỄN ĐỊA PHƯƠNG / VÙNG CAO: Lồng ghép tự nhiên, gần gũi các hình ảnh đời sống học sinh vùng cao (như trường PTDTBT, bản làng, nương ngô, ruộng bậc thang, phiên chợ vùng cao, giữ gìn vệ sinh trường lớp, giúp đỡ bố mẹ...) vào tình huống của 2 - 3 câu hỏi vận dụng.`
+    : '';
 
-    switch (request.vietnameseScope) {
-        case 'reading':
-            return 'YÊU CẦU TIẾNG VIỆT: Chỉ tập trung Đọc hiểu. Có câu tìm chi tiết, hiểu nội dung, từ ngữ trong ngữ cảnh và liên hệ vừa sức; không tự thêm phần viết dài hoặc luyện từ và câu độc lập.';
-        case 'writing':
-            return 'YÊU CẦU TIẾNG VIỆT: Chỉ tập trung Luyện viết. Có yêu cầu rõ số câu/dòng, gợi ý ngắn và tiêu chí chấm; không tự tạo bài đọc hiểu.';
-        case 'comprehensive':
-            return SUBJECT_MINIMUM_REQUIREMENTS['Tiếng Việt'];
-        case 'language':
-        default:
-            return 'YÊU CẦU TIẾNG VIỆT: Chỉ tập trung Luyện từ và câu theo chủ đề. Có nhận biết, thực hành và vận dụng đặt/sửa câu; không tự tạo bài đọc hiểu hay đề viết đoạn dài.';
-    }
-};
+  const matrixSectionInstruction = request.includeMatrix
+    ? `## II. MA TRẬN ĐẶC TẢ CÂU HỎI
+(Trình bày bằng bảng Markdown gồm các cột: | Mức độ nhận thức | Nội dung / Kỹ năng | Số câu | Câu số | Dạng câu hỏi | theo đúng Thông tư 27/2020/TT-BGDĐT gồm 3 mức: Mức 1 - Nhận biết, Mức 2 - Kết nối/Thông hiểu, Mức 3 - Vận dụng).`
+    : '';
 
+  const prompt = `Bạn là chuyên gia giáo dục Tiểu học giàu kinh nghiệm, am hiểu sâu sắc Chương trình Giáo dục phổ thông 2018 và Thông tư 27/2020/TT-BGDĐT.
+Hãy biên soạn một PHIẾU BÀI TẬP chất lượng cao, chuẩn sư phạm và sẵn sàng in trên khổ giấy A4 với các thông số sau:
 
-const getSubjectAnswerRules = (request: WorksheetRequest): string => {
-    if (request.answerMode === 'short') {
-        return 'Đáp án phải chính xác và khớp từng câu. Chỉ ghi kết quả/ý trả lời cần thiết; câu mở ghi ngắn các ý hoặc tiêu chí được chấp nhận.';
-    }
-    return SUBJECT_ANSWER_RULES[request.subject] || 'Đáp án phải có căn cứ rõ, giải thích vừa sức học sinh tiểu học và phụ huynh; câu mở cần có tiêu chí chấp nhận.';
-};
-
-const getAnswerModeQualityBlock = (request: WorksheetRequest): string => {
-    const count = request.questionCount || 10;
-    const base = `
-KHÓA MỨC ĐỘ CHI TIẾT CỦA ĐÁP ÁN:
-- Kiểu đáp án giáo viên chọn: ${getOptionLabel(ANSWER_MODE_OPTIONS, request.answerMode)}.
-- Dù chọn kiểu nào, đáp án không được sai, không được chung chung, không được chỉ chép lại đề.
-`;
-
-    if (request.answerMode === 'short') {
-        return `${base}
-Yêu cầu riêng: chỉ ghi đáp án/kết quả theo từng câu. Không giải thích từng phương án sai, không thêm lỗi thường gặp hoặc hướng dẫn dài. Với câu mở, chỉ nêu các ý/tiêu chí chấp nhận ngắn gọn.`;
-    }
-
-    if (request.answerMode === 'rubric') {
-        return `${base}
-Yêu cầu riêng: ngoài đáp án và giải thích, cần có hướng dẫn chấm/tiêu chí đánh giá cho câu tự luận, viết đoạn, tình huống, vận dụng. Với phiếu có ${count} câu, câu dễ có thể chấm gọn, câu vận dụng và thử thách phải có tiêu chí rõ.`;
-    }
-
-    return `${base}
-Yêu cầu riêng: ưu tiên đáp án chi tiết cho PHHS. Với câu trắc nghiệm phải giải thích vì sao đáp án đúng đúng và vì sao từng phương án sai sai. Với câu mở, ghi gợi ý và tiêu chí chấp nhận, không áp đặt một đáp án duy nhất.`;
-};
-
-
-const clipReadingText = (text?: string): string => {
-    const clean = (text || '').trim();
-    if (!clean) return '';
-    return clean.length > 6000 ? `${clean.slice(0, 6000)}\n[Đã rút gọn văn bản giáo viên nhập do quá dài. Khi tạo phiếu, chỉ dùng phần văn bản trên và không tự thêm nguồn khác.]` : clean;
-};
-
-
-const buildReadingCitationLine = (request: WorksheetRequest): string => {
-    const manualLine = (request.readingCitationLine || '').trim();
-    if (manualLine) return manualLine;
-
-    const grade = (request.readingBookGrade || '').trim();
-    const year = (request.readingBookYear || '').trim();
-    const title = (request.readingBookTitle || '').trim();
-    const lesson = (request.readingLessonTitle || '').trim();
-
-    if (request.readingSource !== 'verified_textbook_excerpt' || !grade || !year) return '';
-
-    const detailParts: string[] = [];
-    if (title) detailParts.push(title);
-    if (lesson) detailParts.push(`bài "${lesson}"`);
-    const detail = detailParts.length ? ` (${detailParts.join(', ')})` : '';
-    return `Trích từ SGK Tiếng Việt lớp ${grade}, năm ${year}${detail}`;
-};
-
-const getVietnameseGradeReadingGuide = (grade: string): string => {
-    switch (grade) {
-        case '1':
-            return 'Lớp 1: ngữ liệu rất ngắn, câu đơn giản, ưu tiên đọc tiếng/từ/câu, tìm chi tiết trực tiếp, nối, điền tiếng/từ, viết từ hoặc 1 câu ngắn; không yêu cầu phân tích.';
-        case '2':
-            return 'Lớp 2: ngữ liệu ngắn, gần gũi; câu hỏi tìm chi tiết, hiểu nghĩa từ đơn giản, đặt câu, viết 2-3 câu theo gợi ý.';
-        case '3':
-            return 'Lớp 3: ngữ liệu vừa phải; có tìm chi tiết, hiểu nội dung, giải nghĩa từ trong ngữ cảnh, đặt câu, sửa câu, viết đoạn 4-5 câu.';
-        case '4':
-            return 'Lớp 4: ngữ liệu có nội dung sâu hơn nhưng vẫn vừa sức; tăng suy luận, nhận xét nhân vật/sự việc, luyện từ và câu theo lớp, viết đoạn có lí do/cảm xúc.';
-        case '5':
-            return 'Lớp 5: ngữ liệu có thông điệp rõ; tăng hiểu chủ đề, suy luận, liên hệ, liên kết câu/vốn từ/biện pháp tu từ phù hợp, viết đoạn/bài ngắn theo yêu cầu.';
-        default:
-            return 'Ngữ liệu và câu hỏi phải phù hợp học sinh tiểu học, tăng dần độ khó nhưng không hàn lâm.';
-    }
-};
-
-const getVietnameseReadingSourceBlock = (request: WorksheetRequest): string => {
-    if (request.subject !== 'Tiếng Việt' || !['reading', 'comprehensive'].includes(request.vietnameseScope || '')) return '';
-
-    const source = request.readingSource || 'auto_new';
-    const sourceLabel = getOptionLabel(READING_SOURCE_OPTIONS, source);
-    const note = (request.readingSourceNote || '').trim();
-    const providedText = clipReadingText(request.readingText);
-    const citationLine = buildReadingCitationLine(request);
-    const gradeGuide = getVietnameseGradeReadingGuide(request.grade);
-
-    const common = `
-KHÓA CHUẨN DỮ LIỆU ĐỌC HIỂU TIẾNG VIỆT:
-- Nguồn ngữ liệu giáo viên chọn: ${sourceLabel}.
-- ${gradeGuide}
-- Phần kiến thức, câu hỏi Luyện từ và câu, Viết, đáp án và tiêu chí chấm phải bám Tiếng Việt Kết nối tri thức hiện hành của lớp ${request.grade}; ngữ liệu đọc chỉ là văn bản luyện đọc hiểu.
-- Không tự lấy/sao chép nguyên văn văn bản từ internet, SGK cũ, PDF scan hoặc website nếu giáo viên không dán văn bản cụ thể.
-- Không bịa tên sách, tên tác giả, số trang, nguồn xuất bản. Nếu chỉ mô phỏng phong cách thì ghi “Nguồn ngữ liệu: Văn bản mới theo phong cách trong sáng, giản dị”.
-- Chỉ được ghi dòng “Trích từ SGK Tiếng Việt lớp..., năm...” khi giáo viên chọn nguồn “Trích từ SGK cũ đã kiểm duyệt”, có dán văn bản và có thông tin lớp/năm xuất bản.
-- Nếu dùng văn bản dân gian, có thể ghi “phỏng theo truyện dân gian/đồng dao/ca dao” khi phù hợp; không gán tác giả cụ thể nếu không chắc.
-- Ghi rõ trong phiếu: “Nguồn ngữ liệu” theo đúng lựa chọn, nhưng tránh khẳng định sai về bản quyền/nguồn.
-${citationLine ? `- Dòng trích nguồn bắt buộc đặt ngay dưới bài đọc: ${citationLine}` : ''}
-${note ? `- Ghi chú của giáo viên về nguồn/yêu cầu: ${note}` : ''}`;
-
-    if (source === 'verified_textbook_excerpt') {
-        if (providedText && citationLine) {
-            return `${common}
-
-VĂN BẢN TRÍCH TỪ SGK CŨ ĐÃ KIỂM DUYỆT - BẮT BUỘC BÁM VÀO VĂN BẢN NÀY:
-<<<VAN_BAN_TRICH_SGK_CU_DA_KIEM_DUYET
-${providedText}
-VAN_BAN_TRICH_SGK_CU_DA_KIEM_DUYET>>>
-Yêu cầu bắt buộc:
-- Dùng đúng văn bản trên để tạo phần Đọc hiểu; không thay bằng bài đọc khác.
-- Ngay dưới bài đọc, ghi đúng dòng: “${citationLine}”.
-- Không tự bổ sung tên sách, tác giả, số trang hoặc nguồn khác nếu giáo viên không nhập.
-- Phần câu hỏi kiến thức vẫn bám Tiếng Việt Kết nối tri thức hiện hành của lớp ${request.grade}.`;
-        }
-        return `${common}
-
-Giáo viên chọn “Trích từ SGK cũ đã kiểm duyệt” nhưng chưa đủ văn bản hoặc chưa đủ lớp/năm xuất bản. Không được ghi “Trích từ...”. Hãy tạo văn bản mới theo chủ đề và ghi “Nguồn ngữ liệu: Văn bản mới do hệ thống biên soạn theo chủ đề”.`;
-    }
-
-    if (source === 'teacher_provided') {
-        if (providedText) {
-            return `${common}
-
-VĂN BẢN GIÁO VIÊN CUNG CẤP - BẮT BUỘC BÁM VÀO VĂN BẢN NÀY:
-<<<VAN_BAN_GIAO_VIEN_CUNG_CAP
-${providedText}
-VAN_BAN_GIAO_VIEN_CUNG_CAP>>>
-Yêu cầu: dùng đúng văn bản trên để tạo phần Đọc hiểu; không thay bằng bài đọc khác. Có thể chỉnh rất nhẹ lỗi chính tả/dấu câu nếu cần, nhưng không làm thay đổi nội dung. Nếu không có thông tin SGK lớp/năm xuất bản, không ghi “Trích từ SGK...”.`;
-        }
-        return `${common}
-
-Giáo viên chọn “Tự nhập bài đọc đã kiểm duyệt” nhưng chưa dán văn bản. Hãy tự tạo một văn bản mới phù hợp chủ đề, không sao chép internet, và ghi rõ “Nguồn ngữ liệu: Văn bản mới do hệ thống biên soạn theo chủ đề”.`;
-    }
-
-    if (source === 'old_textbook_style') {
-        return `${common}
-
-YÊU CẦU RIÊNG KHI CHỌN PHONG CÁCH SGK CŨ TRƯỚC 2006:
-- Chỉ mô phỏng phong cách: câu văn giản dị, ấm áp, gần gũi gia đình - nhà trường - quê hương - thiên nhiên - lao động - tình bạn.
-- Không sao chép nguyên văn bài đọc cũ, không ghi là trích từ SGK cũ, không nêu tên bài/tác giả/sách nếu không được giáo viên cung cấp.
-- Bài đọc phải là văn bản mới, có thể có cảm giác quen thuộc như bài đọc xưa nhưng nội dung phải tự biên soạn.`;
-    }
-
-    if (source === 'folk_public') {
-        return `${common}
-
-YÊU CẦU RIÊNG KHI CHỌN NGỮ LIỆU DÂN GIAN:
-- Ưu tiên truyện dân gian, ngụ ngôn, đồng dao, ca dao, tục ngữ phù hợp lứa tuổi; có thể kể lại/chuyển thể ngắn bằng lời văn mới.
-- Không dùng dị bản quá dài hoặc có chi tiết không phù hợp học sinh tiểu học.
-- Câu hỏi phải khai thác bài học, từ ngữ, nhân vật/sự việc và liên hệ bản thân.`;
-    }
-
-    return `${common}
-
-YÊU CẦU RIÊNG KHI TỰ TẠO VĂN BẢN MỚI:
-- Tự biên soạn bài đọc mới theo chủ đề giáo viên nhập, độ dài vừa sức lớp ${request.grade}, ngôn ngữ trong sáng.
-- Bài đọc cần có chi tiết đủ rõ để tạo câu hỏi đọc hiểu, luyện từ và câu, viết; không quá chung chung.`;
-};
-
-const getVietnameseScopeBlock = (request: WorksheetRequest): string => {
-    if (request.subject !== 'Tiếng Việt') return '';
-    const scopeMap = {
-        reading: 'Luyện đọc hiểu',
-        language: 'Luyện từ và câu',
-        writing: 'Luyện viết',
-        comprehensive: 'Tổng hợp Đọc hiểu - Luyện từ và câu - Viết',
-    } as const;
-    const scope = request.vietnameseScope || 'language';
-    return `PHẠM VI TIẾNG VIỆT BẮT BUỘC: ${scopeMap[scope]}. Chỉ tạo đúng phạm vi này; không tự thêm các phần ngoài phạm vi giáo viên đã chọn.`;
-};
-
-const buildWorksheetPrompt = (request: WorksheetRequest): string => {
-    const exerciseTypeLabel = getOptionLabel(EXERCISE_TYPE_OPTIONS, request.exerciseType);
-    const studentTargetLabel = getOptionLabel(STUDENT_TARGET_OPTIONS, request.studentTarget);
-    const answerModeLabel = getOptionLabel(ANSWER_MODE_OPTIONS, request.answerMode);
-    const selectedFormats = getSelectedFormats(request);
-    const formatLabel = getFormatLabels(selectedFormats);
-    const subjectQualityBlock = getSubjectQualityBlock(request.subject);
-    const subjectMinimumRequirements = getSubjectMinimumRequirements(request);
-    const subjectAnswerRules = getSubjectAnswerRules(request);
-    const answerModeQualityBlock = getAnswerModeQualityBlock(request);
-    const difficultyDistribution = getDifficultyDistribution(request);
-    const questionCountPlan = getQuestionCountPlan(request);
-    const vietnameseReadingSourceBlock = getVietnameseReadingSourceBlock(request);
-    const vietnameseScopeBlock = getVietnameseScopeBlock(request);
-    const structureSections = request.includeMatrix
-        ? `## I. MỤC TIÊU PHIẾU HỌC TẬP
-## II. MA TRẬN CÂU HỎI
-## III. ĐỀ BÀI
-## IV. ĐÁP ÁN VÀ HƯỚNG DẪN
-## V. GỢI Ý SỬ DỤNG NGẮN CHO GIÁO VIÊN`
-        : `## I. MỤC TIÊU PHIẾU HỌC TẬP
-## II. ĐỀ BÀI
-## III. ĐÁP ÁN VÀ HƯỚNG DẪN
-## IV. GỢI Ý SỬ DỤNG NGẮN CHO GIÁO VIÊN`;
-
-    return `
-Hãy tạo phiếu bài tập ôn luyện chất lượng cao theo đúng thông tin sau:
+1. THÔNG TIN CHUNG:
+- Khối lớp: Lớp ${request.grade}
 - Môn học: ${request.subject}
-- Lớp: ${request.grade}
-- Bài/chủ đề: "${request.topic}"
-- Loại phiếu: ${exerciseTypeLabel}
-- Mức độ phù hợp: ${studentTargetLabel}
-- Thời lượng dự kiến: ${request.durationMinutes || 20} phút
-- Số lượng câu hỏi mong muốn: ${request.questionCount || 10} câu
-- Dạng bài cần ưu tiên/kết hợp: ${formatLabel}
-- Kiểu đáp án: ${answerModeLabel}
-- Có bảng ma trận nhỏ: ${request.includeMatrix ? 'Có' : 'Không'}
-- Có liên hệ thực tế địa phương/vùng cao: ${request.includeLocalContext ? 'Có' : 'Không'}
+- Tên bài / Chủ đề: ${request.topic}
+- Loại phiếu: ${exerciseLabel}
+- Đối tượng học sinh: ${targetLabel}
+- Thời lượng làm bài: ${request.durationMinutes} phút (Tổng số câu hỏi: đúng ${request.questionCount} câu)
+- Các dạng câu hỏi ưu tiên: ${preferredFormatText}
+- Chế độ đáp án: ${answerLabel}
+${localContextText}
+${buildVietnameseInstruction(request)}
+${buildImageInstruction(request)}
 
-${vietnameseScopeBlock}
-${subjectQualityBlock}
-${subjectMinimumRequirements}
-${subjectAnswerRules}
-${answerModeQualityBlock}
-${KNOWLEDGE_AUDIT_INSTRUCTION}
-${vietnameseReadingSourceBlock}
+2. YÊU CẦU ĐỊNH DẠNG BẮT BUỘC (ĐỂ XUẤT FILE WORD .DOCX TỰ ĐỘNG):
+- Dòng đầu tiên là tiêu đề phiếu in hoa, bắt đầu bằng dấu \`# \` (Ví dụ: \`# PHIẾU BÀI TẬP MÔN ${request.subject.toUpperCase()} LỚP ${request.grade} - ${request.topic.toUpperCase()}\`).
+- Chia rõ các phần bằng tiêu đề cấp 2 (\`## \`):
+  + \`## I. MỤC TIÊU BÀI HỌC\` (Gạch đầu dòng 2-3 yêu cầu cần đạt ngắn gọn, rõ ràng).
+  ${matrixSectionInstruction ? `+ ${matrixSectionInstruction}` : ''}
+  + \`## ${request.includeMatrix ? 'III' : 'II'}. ĐỀ BÀI\`
+    * Đánh số thứ tự từng câu rõ ràng theo mẫu: **Câu 1 (Mức 1):** ..., **Câu 2 (Mức 1):** ..., **Câu 3 (Mức 2):** ...
+    * Luôn có khoảng trắng sau dấu hai chấm.
+    * Với câu Nối cột: Bắt buộc kẻ bảng Markdown gồm đúng 2 cột \`| Cột A | Cột B |\`.
+    * Với câu Tự luận / Điền lời giải / Sửa lỗi sai: Bắt buộc chèn 2 đến 3 dòng chấm \`........................................................................................\` bên dưới câu hỏi để học sinh có chỗ viết bài trên giấy in.
+    * Không sử dụng công thức LaTeX phức tạp; hãy dùng ký hiệu toán học phổ thông dễ đọc cho học sinh tiểu học (như ×, :, ², ³, ≥, ≤, phân số a/b).
+  + \`## ${request.includeMatrix ? 'IV' : 'III'}. ĐÁP ÁN VÀ HƯỚNG DẪN CHẤM\`
+    * Trình bày chi tiết đáp án cho từng câu từ Câu 1 đến Câu ${request.questionCount}.
+    * Sử dụng các nhãn chuẩn như **Đáp án:**, **Bài giải:**, **Giải thích:**, **Lỗi học sinh thường gặp:** (tùy theo chế độ đáp án "${answerLabel}").
+  + \`## ${request.includeMatrix ? 'V' : 'IV'}. GỢI Ý SỬ DỤNG CHO GIÁO VIÊN\`
+    * Gợi ý ngắn gọn cách tổ chức trên lớp và hỗ trợ học sinh còn lúng túng.`;
 
-PHÂN HÓA BẮT BUỘC:
-${difficultyDistribution}
-${questionCountPlan}
+  const response = await ai.models.generateContent({
+    model: 'gemini-2.5-flash',
+    contents: prompt,
+  });
 
-YÊU CẦU KIỂM SOÁT CHẤT LƯỢNG KIẾN THỨC:
-1. Câu hỏi phải bám sát bài/chủ đề "${request.topic}" và phù hợp lớp ${request.grade}; không tạo kiến thức ngoài chương trình tiểu học.
-2. Mỗi câu phải có giá trị ôn luyện rõ: kiểm tra kiến thức nền, hiểu bản chất, vận dụng hoặc phát triển tư duy.
-3. Ghi rõ mức độ trong từng câu hoặc từng phần: Nhận biết, Thông hiểu, Vận dụng, Thử thách.
-4. Không dùng câu hỏi chung chung như “em hãy nêu cảm nhận” nếu không có tiêu chí/gợi ý cụ thể.
-5. Câu vận dụng phải có tình huống, dữ kiện hoặc nhiệm vụ thực tế; không gọi câu nhớ lại hoặc phép tính đơn giản là vận dụng.
-6. Câu thử thách phải phân hóa nhưng không vượt chương trình; có thể yêu cầu giải thích, tìm lỗi, thiết kế, đặt đề hoặc liên hệ.
-7. Trắc nghiệm phải có đúng 1 đáp án; phương án nhiễu phải hợp lí, không vô nghĩa.
-8. Nếu có nối cột, dùng bảng 3 cột: Cột A, Cột B, Trả lời.
-9. Nếu có sắp xếp thứ tự, các bước phải cùng một quy trình thật, không trộn bước không liên quan.
-10. Đáp án phải đủ rõ để giáo viên, học sinh và phụ huynh đối chiếu; với câu mở phải có tiêu chí chấp nhận.
-11. Không được đưa câu hỏi nếu bản thân không chắc đáp án/giải thích; hãy thay bằng câu chắc chắn hơn, có dữ kiện rõ hơn.
+  const text = response.text;
+  if (!text || !text.trim()) {
+    throw new Error('AI không trả về nội dung. Vui lòng thử lại.');
+  }
 
-YÊU CẦU TRÌNH BÀY SẠCH ĐỂ XUẤT WORD:
-- Không dùng LaTeX. Không dùng ký tự đô la, dấu gạch chéo ngược, dòng phân cách ---, ký hiệu căn bảng :--- trong đề và đáp án.
-- Phép tính viết bằng văn bản thường: 7 × 8, 42 : 7, 1/2, 15 m².
-- Ma trận câu hỏi trình bày thành bảng rõ ràng để khi xuất Word nằm trong khung.
-- Bài nối cột bắt buộc có bảng 3 cột: Cột A, Cột B, Trả lời. Cột Trả lời để học sinh ghi 1 - ...., 2 - ....
-
-CẤU TRÚC CẦN TRẢ VỀ:
-# PHIẾU BÀI TẬP ${request.subject.toUpperCase()} - LỚP ${request.grade}
-Bài/Chủ đề: ${request.topic}
-Loại phiếu: ${exerciseTypeLabel}
-Đối tượng: ${studentTargetLabel}
-
-${structureSections}
-
-Không tạo mục phụ huynh theo dõi hoặc học sinh tự đánh giá trong nội dung AI; bản làm bài sẽ được hệ thống bổ sung riêng khi xuất Word.
-
-Trước khi trả kết quả, hãy tự kiểm định nội bộ từng câu: đúng môn, đúng lớp, đúng chủ đề, đủ phân hóa, đủ dạng bài phù hợp môn, không sai kiến thức, không trùng lặp, không ký tự lạ, đáp án khớp đề, giải thích đủ để PHHS hướng dẫn con. Không hiển thị bảng kiểm định nội bộ trong phiếu.
-`;
+  return text.trim();
 };
 
-export const validateApiKey = async (apiKey: string): Promise<boolean> => {
-    try {
-        const client = getGeminiClient(apiKey);
-        await client.models.generateContent({
-            model: 'gemini-3-flash-preview',
-            contents: 'Test',
-        });
-        return true;
-    } catch (error) {
-        console.error("API Key Validation Failed:", error);
-        return false;
-    }
-};
-
-export const generateWorksheet = async (request: WorksheetRequest, apiKey: string): Promise<ReadableStream<string>> => {
-    const client = getGeminiClient(apiKey);
-    const model = 'gemini-3-flash-preview';
-
-    const systemInstruction = SYSTEM_INSTRUCTION;
-    const userPrompt = buildWorksheetPrompt(request);
-
-    try {
-        const responseStream = await client.models.generateContentStream({
-            model: model,
-            contents: userPrompt,
-            config: {
-                systemInstruction: systemInstruction,
-                temperature: 0.45,
-            }
-        });
-
-        return new ReadableStream({
-            async start(controller) {
-                try {
-                    for await (const chunk of responseStream) {
-                        const text = chunk.text;
-                        if (text) {
-                            controller.enqueue(text);
-                        }
-                    }
-                    controller.close();
-                } catch (error) {
-                    controller.error(error);
-                }
-            }
-        });
-
-    } catch (error) {
-        console.error("Gemini API Error:", error);
-        throw error;
-    }
-};
+export const generateWorksheetContent = generateWorksheet;
+export default generateWorksheet;
