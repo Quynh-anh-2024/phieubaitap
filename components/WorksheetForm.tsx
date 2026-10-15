@@ -7,26 +7,34 @@ import {
   StudentTarget,
   AnswerMode,
   QuestionFormat,
+  ImageMode,
   EXERCISE_TYPE_OPTIONS,
   STUDENT_TARGET_OPTIONS,
   ANSWER_MODE_OPTIONS,
   READING_SOURCE_OPTIONS,
   VIETNAMESE_SCOPE_OPTIONS,
+  IMAGE_MODE_OPTIONS,
   ReadingSource,
   VietnameseScope,
   OptionItem,
 } from '../types';
-import { BookOpen, ClipboardList, GraduationCap, Layers, PenTool, Settings2, Sparkles } from 'lucide-react';
+import {
+  BookOpen,
+  ClipboardList,
+  GraduationCap,
+  Image as ImageIcon,
+  Layers,
+  PenTool,
+  Settings2,
+  Sparkles,
+} from 'lucide-react';
 
 interface WorksheetFormProps {
   onSubmit: (data: WorksheetRequest) => void;
   isLoading: boolean;
 }
 
-type FormatPreset =
-  | 'balanced'
-  | 'objective_focus'
-  | 'constructed_focus';
+type FormatPreset = 'balanced' | 'objective_focus' | 'constructed_focus';
 
 const DURATION_OPTIONS = [
   { value: 10, label: '10 phút', description: 'Khoảng 5-6 câu, phù hợp kiểm tra nhanh.' },
@@ -84,27 +92,29 @@ function SelectField<T extends string | number>({
   icon,
   hint,
 }: SelectFieldProps<T>) {
-  return <label className="block">
-    <span className="flex items-center gap-2 text-sm font-extrabold text-slate-700 uppercase tracking-wide mb-2">
-      {icon}
-      {label}
-    </span>
-    <select
-      value={value}
-      onChange={(e) => {
-        const selected = options.find((option) => String(option.value) === e.target.value);
-        if (selected) onChange(selected.value);
-      }}
-      className="w-full min-h-[54px] px-4 py-3 bg-white border-2 border-slate-200 rounded-2xl text-slate-800 font-bold shadow-sm outline-none transition-all cursor-pointer focus:border-teal-400 focus:ring-4 focus:ring-teal-100 hover:border-teal-200"
-    >
-      {options.map((option) => (
-        <option key={String(option.value)} value={String(option.value)}>
-          {option.label}
-        </option>
-      ))}
-    </select>
-    {hint && <span className="block mt-1.5 text-xs leading-relaxed text-slate-500">{hint}</span>}
-  </label>;
+  return (
+    <label className="block">
+      <span className="flex items-center gap-2 text-sm font-extrabold text-slate-700 uppercase tracking-wide mb-2">
+        {icon}
+        {label}
+      </span>
+      <select
+        value={value}
+        onChange={(e) => {
+          const selected = options.find((option) => String(option.value) === e.target.value);
+          if (selected) onChange(selected.value);
+        }}
+        className="w-full min-h-[54px] px-4 py-3 bg-white border-2 border-slate-200 rounded-2xl text-slate-800 font-bold shadow-sm outline-none transition-all cursor-pointer focus:border-teal-400 focus:ring-4 focus:ring-teal-100 hover:border-teal-200"
+      >
+        {options.map((option) => (
+          <option key={String(option.value)} value={String(option.value)}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      {hint && <span className="block mt-1.5 text-xs leading-relaxed text-slate-500">{hint}</span>}
+    </label>
+  );
 }
 
 const SectionTitle = ({
@@ -134,6 +144,7 @@ const WorksheetForm: React.FC<WorksheetFormProps> = ({ onSubmit, isLoading }) =>
   const [durationMinutes, setDurationMinutes] = useState<number>(35);
   const [answerMode, setAnswerMode] = useState<AnswerMode>('explain');
   const [formatPreset, setFormatPreset] = useState<FormatPreset>(DEFAULT_FORMAT_PRESET);
+  const [imageMode, setImageMode] = useState<ImageMode>('auto');
   const [includeMatrix, setIncludeMatrix] = useState<boolean>(false);
   const [includeLocalContext, setIncludeLocalContext] = useState<boolean>(false);
   const [vietnameseScope, setVietnameseScope] = useState<VietnameseScope>('language');
@@ -194,6 +205,7 @@ const WorksheetForm: React.FC<WorksheetFormProps> = ({ onSubmit, isLoading }) =>
       questionCount: QUESTION_COUNT_BY_DURATION[durationMinutes] || 10,
       answerMode,
       preferredFormats,
+      imageMode,
       includeMatrix,
       includeLocalContext,
       vietnameseScope: isVietnamese ? vietnameseScope : undefined,
@@ -232,7 +244,7 @@ const WorksheetForm: React.FC<WorksheetFormProps> = ({ onSubmit, isLoading }) =>
             Tạo Phiếu Bài Tập
           </h2>
           <p className="text-sm text-slate-500 font-medium mt-1">
-            Giao diện gọn hơn: chọn nhanh bằng danh sách sổ xuống, xem tóm tắt trước khi tạo phiếu.
+            Giao diện gọn hơn: chọn nhanh bằng danh sách sổ xuống, hỗ trợ minh họa hình ảnh trực quan.
           </p>
         </div>
       </div>
@@ -418,7 +430,7 @@ const WorksheetForm: React.FC<WorksheetFormProps> = ({ onSubmit, isLoading }) =>
           <SectionTitle
             icon={<ClipboardList className="w-5 h-5" />}
             title="2. Cấu hình phiếu"
-            description="Chọn mục đích, mức phù hợp và thời lượng. App sẽ tự cân đối số câu."
+            description="Chọn mục đích, mức phù hợp, thời lượng và chế độ minh họa hình ảnh."
           />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -456,6 +468,14 @@ const WorksheetForm: React.FC<WorksheetFormProps> = ({ onSubmit, isLoading }) =>
               onChange={setAnswerMode}
               options={ANSWER_MODE_OPTIONS}
               hint={getOptionDescription(ANSWER_MODE_OPTIONS, answerMode)}
+            />
+            <SelectField<ImageMode>
+              label="Minh họa hình ảnh"
+              value={imageMode}
+              onChange={setImageMode}
+              options={IMAGE_MODE_OPTIONS}
+              icon={<ImageIcon className="w-4 h-4 text-teal-500" />}
+              hint={getOptionDescription(IMAGE_MODE_OPTIONS, imageMode)}
             />
           </div>
         </section>
