@@ -1,4 +1,3 @@
-import { GoogleGenAI } from '@google/genai';
 import {
   WorksheetRequest,
   EXERCISE_TYPE_OPTIONS,
@@ -6,38 +5,67 @@ import {
   ANSWER_MODE_OPTIONS,
 } from '../types';
 
+/**
+ * Cầu nối tương thích: Giúp chuỗi kết quả trả về từ generateWorksheet vừa dùng được như string bình thường,
+ * vừa có sẵn phương thức .getReader() nếu App.tsx đọc dữ liệu theo luồng ReadableStream.
+ */
+if (typeof String !== 'undefined' && typeof (String.prototype as any).getReader !== 'function') {
+  Object.defineProperty(String.prototype, 'getReader', {
+    configurable: true,
+    writable: true,
+    value: function () {
+      const fullText = String(this);
+      let isRead = false;
+      return {
+        read: async () => {
+          if (isRead) {
+            return { done: true, value: undefined };
+          }
+          isRead = true;
+          const bytes = new TextEncoder().encode(fullText);
+          // Hỗ trợ cả trường hợp App.tsx dùng TextDecoder.decode(value) lẫn cộng chuỗi trực tiếp (text += value)
+          Object.defineProperty(bytes, 'toString', { value: () => fullText });
+          Object.defineProperty(bytes, Symbol.toPrimitive, { value: () => fullText });
+          return { done: false, value: bytes as any };
+        },
+        releaseLock: () => {},
+        cancel: async () => {},
+      };
+    },
+  });
+}
+
 let runtimeApiKey = '';
 
+const extractKeyPattern = (raw: string | null | undefined): string => {
+  if (!raw) return '';
+  const match = String(raw).match(/AIza[0-9A-Za-z\-_]{25,}/);
+  return match ? match[0] : '';
+};
+
 const getApiKey = (customKey?: string): string => {
-  if (customKey && customKey.trim()) {
-    runtimeApiKey = customKey.trim();
+  const fromCustom = extractKeyPattern(customKey) || (customKey && customKey.trim());
+  if (fromCustom) {
+    runtimeApiKey = fromCustom;
     return runtimeApiKey;
   }
 
   if (runtimeApiKey) return runtimeApiKey;
 
-  if (typeof window !== 'undefined' && window.localStorage) {
-    const directKeys = [
-      'GEMINI_API_KEY',
-      'gemini_api_key',
-      'api_key',
-      'apiKey',
-      'GOOGLE_API_KEY',
-      'user_api_key',
-    ];
-
-    for (const k of directKeys) {
-      const val = localStorage.getItem(k);
-      if (val && val.trim()) return val.trim();
-    }
-
-    // Tự động dò tìm API Key hợp lệ của Gemini trong localStorage nếu App.tsx lưu bằng tên khóa khác
-    for (let i = 0; i < localStorage.length; i += 1) {
-      const storageKey = localStorage.key(i);
-      if (!storageKey) continue;
-      const val = localStorage.getItem(storageKey)?.trim() || '';
-      if (/^AIza[0-9A-Za-z\-_]{30,}$/.test(val)) {
-        return val;
+  if (typeof window !== 'undefined') {
+    const storages = [window.localStorage, window.sessionStorage];
+    for (const storage of storages) {
+      if (!storage) continue;
+      try {
+        for (let i = 0; i < storage.length; i += 1) {
+          const k = storage.key(i);
+          if (!k) continue;
+          const val = storage.getItem(k);
+          const extracted = extractKeyPattern(val);
+          if (extracted) return extracted;
+        }
+      } catch {
+        // Bỏ qua nếu trình duyệt chặn quyền truy cập storage
       }
     }
   }
@@ -55,20 +83,66 @@ const getApiKey = (customKey?: string): string => {
   return nodeKey ? String(nodeKey).trim() : '';
 };
 
+const callGeminiRestApi = async (prompt: string, apiKey: string): Promise<string> => {
+  const models = ['gemini-2.5-flash', 'gemini-2.0-flash'];
+  let lastError = '';
+
+  for (const model of models) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(
+        apiKey
+      )}`;
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [{ text: prompt }],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.7,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const errBody = await response.text();
+        lastError = `HTTP ${response.status}: ${errBody}`;
+        continue;
+      }
+
+      const data = await response.json();
+      const parts = data?.candidates?.[0]?.content?.parts;
+      if (Array.isArray(parts)) {
+        const text = parts
+          .map((p: any) => p?.text || '')
+          .join('')
+          .trim();
+        if (text) return text;
+      }
+    } catch (err: any) {
+      lastError = err?.message || String(err);
+    }
+  }
+
+  throw new Error(lastError || 'Không thể kết nối tới Gemini API.');
+};
+
 /**
- * Hàm kiểm tra tính hợp lệ của Gemini API Key được gọi từ App.tsx
+ * Kiểm tra tính hợp lệ của Gemini API Key (được gọi từ App.tsx)
  */
 export const validateApiKey = async (apiKey?: string): Promise<boolean> => {
   const keyToTest = getApiKey(apiKey);
   if (!keyToTest) return false;
 
   try {
-    const ai = new GoogleGenAI({ apiKey: keyToTest });
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: 'OK',
-    });
-    if (response && response.text) {
+    const result = await callGeminiRestApi('Trả lời ngắn gọn: OK', keyToTest);
+    if (result) {
       runtimeApiKey = keyToTest;
       return true;
     }
@@ -157,17 +231,20 @@ ${request.readingText.trim()}
 };
 
 export const generateWorksheet = async (
-  request: WorksheetRequest,
-  customApiKey?: string
+  arg1: WorksheetRequest | string,
+  arg2?: WorksheetRequest | string | ((chunk: string) => void),
+  arg3?: (chunk: string) => void
 ): Promise<string> => {
+  const request = (typeof arg1 === 'object' && arg1 !== null ? arg1 : arg2) as WorksheetRequest;
+  const customApiKey =
+    typeof arg1 === 'string' ? arg1 : typeof arg2 === 'string' ? arg2 : undefined;
+  const onChunk =
+    typeof arg2 === 'function' ? arg2 : typeof arg3 === 'function' ? arg3 : undefined;
+
   const apiKey = getApiKey(customApiKey);
   if (!apiKey) {
-    throw new Error(
-      'Chưa tìm thấy Gemini API Key. Vui lòng nhập API Key hoặc cấu hình biến môi trường.'
-    );
+    throw new Error('Chưa tìm thấy Gemini API Key. Vui lòng bấm "Đổi API Key" để nhập khóa.');
   }
-
-  const ai = new GoogleGenAI({ apiKey });
 
   const exerciseLabel =
     EXERCISE_TYPE_OPTIONS.find((item) => item.value === request.exerciseType)?.label ||
@@ -226,17 +303,13 @@ ${buildImageInstruction(request)}
   + \`## ${request.includeMatrix ? 'V' : 'IV'}. GỢI Ý SỬ DỤNG CHO GIÁO VIÊN\`
     * Gợi ý ngắn gọn cách tổ chức trên lớp và hỗ trợ học sinh còn lúng túng.`;
 
-  const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
-    contents: prompt,
-  });
+  const resultText = await callGeminiRestApi(prompt, apiKey);
 
-  const text = response.text;
-  if (!text || !text.trim()) {
-    throw new Error('AI không trả về nội dung. Vui lòng thử lại.');
+  if (onChunk) {
+    onChunk(resultText);
   }
 
-  return text.trim();
+  return resultText;
 };
 
 export const generateWorksheetContent = generateWorksheet;
