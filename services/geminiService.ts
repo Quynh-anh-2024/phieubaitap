@@ -6,15 +6,40 @@ import {
   ANSWER_MODE_OPTIONS,
 } from '../types';
 
-const getApiKey = (customKey?: string): string => {
-  if (customKey && customKey.trim()) return customKey.trim();
+let runtimeApiKey = '';
 
-  if (typeof window !== 'undefined') {
-    const localKey =
-      localStorage.getItem('GEMINI_API_KEY') ||
-      localStorage.getItem('gemini_api_key') ||
-      localStorage.getItem('api_key');
-    if (localKey && localKey.trim()) return localKey.trim();
+const getApiKey = (customKey?: string): string => {
+  if (customKey && customKey.trim()) {
+    runtimeApiKey = customKey.trim();
+    return runtimeApiKey;
+  }
+
+  if (runtimeApiKey) return runtimeApiKey;
+
+  if (typeof window !== 'undefined' && window.localStorage) {
+    const directKeys = [
+      'GEMINI_API_KEY',
+      'gemini_api_key',
+      'api_key',
+      'apiKey',
+      'GOOGLE_API_KEY',
+      'user_api_key',
+    ];
+
+    for (const k of directKeys) {
+      const val = localStorage.getItem(k);
+      if (val && val.trim()) return val.trim();
+    }
+
+    // Tự động dò tìm API Key hợp lệ của Gemini trong localStorage nếu App.tsx lưu bằng tên khóa khác
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const storageKey = localStorage.key(i);
+      if (!storageKey) continue;
+      const val = localStorage.getItem(storageKey)?.trim() || '';
+      if (/^AIza[0-9A-Za-z\-_]{30,}$/.test(val)) {
+        return val;
+      }
+    }
   }
 
   const viteKey =
@@ -28,6 +53,30 @@ const getApiKey = (customKey?: string): string => {
       ? process.env.GEMINI_API_KEY || process.env.API_KEY
       : '';
   return nodeKey ? String(nodeKey).trim() : '';
+};
+
+/**
+ * Hàm kiểm tra tính hợp lệ của Gemini API Key được gọi từ App.tsx
+ */
+export const validateApiKey = async (apiKey?: string): Promise<boolean> => {
+  const keyToTest = getApiKey(apiKey);
+  if (!keyToTest) return false;
+
+  try {
+    const ai = new GoogleGenAI({ apiKey: keyToTest });
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: 'OK',
+    });
+    if (response && response.text) {
+      runtimeApiKey = keyToTest;
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error('Lỗi kiểm tra API Key:', error);
+    return false;
+  }
 };
 
 const FORMAT_LABELS: Record<string, string> = {
@@ -49,15 +98,15 @@ const buildImageInstruction = (request: WorksheetRequest): string => {
 
   const ratioGuide =
     mode === 'visual_focus'
-      ? 'Ưu tiên sinh hình vẽ trực quan cho khoảng 40% - 60% số câu hỏi phù hợp (đặc biệt các bài đếm số lượng, nhận diện hình phẳng/hình khối, xem đồng hồ, sơ đồ tách - gộp, thiết bị máy tính, biểu tượng phần mềm, biển báo...).'
-      : 'Chỉ sinh hình vẽ minh họa (khoảng 2 đến 4 câu trong phiếu) tại những câu thực sự cần hình ảnh trực quan để học sinh quan sát và giải bài (ví dụ: hình học, đo độ dài, xem đồng hồ, đếm đồ vật, nhận diện thiết bị/nút lệnh trong Tin học - Công nghệ, sơ đồ tư duy đơn giản). Không vẽ hình cho các câu tính nhẩm hoặc lý thuyết thuần túy.';
+      ? 'Ưu tiên sinh hình vẽ trực quan cho khoảng 40% - 60% số câu hỏi phù hợp (đặc biệt các bài đếm số lượng, nhận diện hình phẳng/hình khối, xem đồng hồ, sơ đồ đoạn thẳng, thiết bị máy tính, biểu tượng phần mềm, biển báo...).'
+      : 'Chỉ sinh hình vẽ minh họa (khoảng 2 đến 4 câu trong phiếu) tại những câu thực sự cần hình ảnh trực quan để học sinh quan sát và giải bài (ví dụ: hình học, đường gấp khúc, đo độ dài, xem đồng hồ, đếm đồ vật, nhận diện thiết bị/nút lệnh trong Tin học - Công nghệ, sơ đồ). Không vẽ hình cho các câu tính nhẩm hoặc lý thuyết thuần túy.';
 
   return `- QUY TẮC VẼ HÌNH MINH HỌA TRỰC QUAN BẰNG MÃ SVG:
   + ${ratioGuide}
   + Khi câu hỏi có hình minh họa, hãy đặt khối mã \`\`\`svg ... \`\`\` ngay bên dưới dòng đề bài của câu hỏi đó (trước các phương án A, B, C, D hoặc dòng chấm trả lời).
   + Quy chuẩn kỹ thuật bắt buộc cho mỗi khối \`\`\`svg:
-    1. Thẻ gốc phải là <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 150"> (hoặc chiều cao 140-180 tùy nội dung), sử dụng nét vẽ rõ ràng (stroke="#1e293b" stroke-width="2"), màu sắc tươi sáng nhưng tương phản cao để khi in trắng đen trên giấy A4 vẫn nhìn rõ.
-    2. Chữ viết hoặc số bên trong hình (nếu có) dùng font-family="Arial, sans-serif" font-size="14" font-weight="bold", có dấu tiếng Việt chuẩn, tuyệt đối không để chữ đè lên nét vẽ.
+    1. Thẻ gốc phải ghi đầy đủ: <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 150" width="360" height="150"> (chiều cao có thể từ 140 đến 180 tùy nội dung), sử dụng nét vẽ rõ ràng (stroke="#1e293b" stroke-width="2"), màu sắc tươi sáng và tương phản cao để khi in trắng đen trên giấy A4 vẫn nhìn rõ nét.
+    2. Chữ viết hoặc số bên trong hình (nếu có) dùng font-family="Arial, sans-serif" font-size="13" font-weight="bold", có dấu tiếng Việt chuẩn, bố trí thoáng, không để chữ đè lên nét vẽ.
     3. TUYỆT ĐỐI KHÔNG ghi sẵn đáp án đúng lộ ra bên trong hình vẽ ở phần Đề bài.
     4. Đóng thẻ </svg> và đóng khối \`\`\` đầy đủ.`;
 };
@@ -114,7 +163,7 @@ export const generateWorksheet = async (
   const apiKey = getApiKey(customApiKey);
   if (!apiKey) {
     throw new Error(
-      'Chưa tìm thấy Gemini API Key. Vui lòng kiểm tra cấu hình biến môi trường (VITE_GEMINI_API_KEY / GEMINI_API_KEY).'
+      'Chưa tìm thấy Gemini API Key. Vui lòng nhập API Key hoặc cấu hình biến môi trường.'
     );
   }
 
@@ -161,7 +210,7 @@ ${buildVietnameseInstruction(request)}
 ${buildImageInstruction(request)}
 
 2. YÊU CẦU ĐỊNH DẠNG BẮT BUỘC (ĐỂ XUẤT FILE WORD .DOCX TỰ ĐỘNG):
-- Dòng đầu tiên là tiêu đề phiếu in hoa, bắt đầu bằng dấu \`# \` (Ví dụ: \`# PHIẾU BÀI TẬP MÔN ${request.subject.toUpperCase()} LỚP ${request.grade} - ${request.topic.toUpperCase()}\`).
+- Dòng đầu tiên là tiêu đề phiếu in hoa, bắt đầu bằng dấu \`# \` (Ví dụ: \`# PHIẾU BÀI TẬP MÔN ${request.subject.toUpperCase()} LỚP ${request.grade} -${request.topic.toUpperCase()}\`).
 - Chia rõ các phần bằng tiêu đề cấp 2 (\`## \`):
   + \`## I. MỤC TIÊU BÀI HỌC\` (Gạch đầu dòng 2-3 yêu cầu cần đạt ngắn gọn, rõ ràng).
   ${matrixSectionInstruction ? `+ ${matrixSectionInstruction}` : ''}
