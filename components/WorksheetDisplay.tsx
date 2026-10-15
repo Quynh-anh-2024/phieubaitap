@@ -194,12 +194,8 @@ const normalizeMathAndSymbols = (text: string): string => {
   result = result
     .replace(/```[\s\S]*?```/g, '')
     .replace(/`([^`]+)`/g, '$1')
-    .replace(/\$\$([\s\S]*?)\$\$/g, '$1')
-    .replace(/\$([^$]*)\$/g, '$1')
-    .replace(/\\frac\{([^{}]+)\}\{([^{}]+)\}/g, '$1/$2')
-    .replace(/\\dfrac\{([^{}]+)\}\{([^{}]+)\}/g, '$1/$2')
-    .replace(/\\text\{([^{}]*)\}/g, '$1')
-    .replace(/\\mathrm\{([^{}]*)\}/g, '$1')
+    .replace(/\$\$([\s\S]*?)\$\$/g, '$1') .replace(/\$([^$]*)\$/g, '$1') .replace(/\\frac\{([^{}]+)\}\{([^{}]+)\}/g, '$1/$2') .replace(/\\dfrac\{([^{}]+)\}\{([^{}]+)\}/g, '$1/$2')
+    .replace(/\\text\{([^{}]*)\}/g, '$1') .replace(/\\mathrm\{([^{}]*)\}/g, '$1')
     .replace(/\\times/g, '×')
     .replace(/\\cdot/g, '×')
     .replace(/\\div/g, ':')
@@ -245,7 +241,7 @@ const isDottedAnswerLine = (line: string): boolean => {
 };
 
 const createDottedParagraph = (): Paragraph =>
-  createParagraph(DOT_LINE, { alignment: AlignmentType.LEFT, spacingAfter: 80 });
+  createParagraph(DOT_LINE, { alignment: AlignmentType.LEFT, spacingAfter: 50 });
 
 const ERROR_FIX_LABELS = [
   'lỗi sai',
@@ -351,8 +347,8 @@ const createParagraph = (
     bullet: options?.bullet ? { level: 0 } : undefined,
     spacing: {
       before: options?.spacingBefore ?? 0,
-      after: options?.spacingAfter ?? 120,
-      line: 276,
+      after: options?.spacingAfter ?? 60, // Đã thu gọn khoảng cách sau đoạn văn bản
+      line: 240, // Chuẩn hóa chiều cao dòng gọn gàng, tránh bị thưa
     },
   });
 };
@@ -362,8 +358,8 @@ const createTitleParagraph = (text: string): Paragraph =>
     bold: true,
     alignment: AlignmentType.CENTER,
     heading: HeadingLevel.HEADING_1,
-    spacingBefore: 120,
-    spacingAfter: 240,
+    spacingBefore: 40,
+    spacingAfter: 120, // Thu gọn khoảng cách dưới tiêu đề chính
     size: TITLE_FONT_SIZE,
   });
 
@@ -372,8 +368,8 @@ const createSectionHeading = (text: string): Paragraph =>
     bold: true,
     alignment: AlignmentType.LEFT,
     heading: HeadingLevel.HEADING_2,
-    spacingBefore: 240,
-    spacingAfter: 120,
+    spacingBefore: 120, // Thu gọn khoảng cách trước các phần I, II, III
+    spacingAfter: 50,
   });
 
 const createSubHeading = (text: string): Paragraph =>
@@ -382,8 +378,8 @@ const createSubHeading = (text: string): Paragraph =>
     italics: true,
     alignment: AlignmentType.LEFT,
     heading: HeadingLevel.HEADING_3,
-    spacingBefore: 160,
-    spacingAfter: 100,
+    spacingBefore: 80,
+    spacingAfter: 40,
   });
 
 const createDocxTable = (rawRows: string[][], currentSectionTitle = ''): Table | null => {
@@ -427,7 +423,7 @@ const createDocxTable = (rawRows: string[][], currentSectionTitle = ''): Table |
           new TableCell({
             width: { size: columnWidth, type: WidthType.PERCENTAGE },
             verticalAlign: VerticalAlign.CENTER,
-            margins: { top: 100, bottom: 100, left: 100, right: 100 },
+            margins: { top: 60, bottom: 60, left: 80, right: 80 }, // Thu gọn padding trong bảng cho gọn
             children: [
               createParagraph(cell, {
                 bold: rowIndex === 0,
@@ -560,7 +556,7 @@ const parseContentToDocxBlocks = async (
 
     if (!trimmed || isOnlySeparator(trimmed)) {
       if (blocks.length && !(blocks[blocks.length - 1] instanceof Table)) {
-        blocks.push(createParagraph('', { spacingAfter: 60 }));
+        blocks.push(createParagraph('', { spacingAfter: 40 }));
       }
       continue;
     }
@@ -582,7 +578,7 @@ const parseContentToDocxBlocks = async (
           blocks.push(
             new Paragraph({
               alignment: AlignmentType.CENTER,
-              spacing: { before: 100, after: 140 },
+              spacing: { before: 40, after: 60 }, // Thu gọn khoảng cách trống trên/dưới hình ảnh SVG
               children: [
                 new ImageRun({
                   data: rendered.data,
@@ -603,7 +599,7 @@ const parseContentToDocxBlocks = async (
               blocks.push(
                 new Paragraph({
                   alignment: AlignmentType.CENTER,
-                  spacing: { before: 100, after: 140 },
+                  spacing: { before: 40, after: 60 }, // Thu gọn khoảng cách trống trên/dưới hình ảnh chèn
                   children: [
                     new ImageRun({
                       data: rendered.data,
@@ -634,7 +630,7 @@ const parseContentToDocxBlocks = async (
       const table = createDocxTable(rows, currentSectionTitle);
       if (table) {
         blocks.push(table);
-        blocks.push(createParagraph('', { spacingAfter: 80 }));
+        blocks.push(createParagraph('', { spacingAfter: 50 }));
       } else {
         rows.flat().forEach((cell) => {
           if (cell) blocks.push(createParagraph(cell));
@@ -683,8 +679,8 @@ const parseContentToDocxBlocks = async (
         createParagraph(normalizeLabelSpacing(stripListMarker(trimmed)), {
           bold: true,
           alignment: AlignmentType.LEFT,
-          spacingBefore: 80,
-          spacingAfter: 40,
+          spacingBefore: 50,
+          spacingAfter: 30,
         })
       );
       continue;
@@ -692,7 +688,7 @@ const parseContentToDocxBlocks = async (
 
     if (/^[-•●]\s+/.test(trimmed) || /^\*\s+/.test(trimmed)) {
       const bulletText = normalizeLabelSpacing(stripListMarker(trimmed));
-      blocks.push(createParagraph(bulletText, { bullet: true, alignment: AlignmentType.LEFT, spacingAfter: 80 }));
+      blocks.push(createParagraph(bulletText, { bullet: true, alignment: AlignmentType.LEFT, spacingAfter: 50 }));
       continue;
     }
 
@@ -714,7 +710,7 @@ const createWordDocument = (blocks: DocxBlock[]): Document => {
             size: STANDARD_FONT_SIZE,
           },
           paragraph: {
-            spacing: { line: 276, before: 0, after: 0 },
+            spacing: { line: 240, before: 0, after: 60 },
           },
         },
       ],
