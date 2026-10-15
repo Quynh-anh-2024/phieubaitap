@@ -84,7 +84,7 @@ const getApiKey = (customKey?: string): string => {
 };
 
 const callGeminiRestApi = async (prompt: string, apiKey: string): Promise<string> => {
-  const models = ['gemini-2.5-flash', 'gemini-2.0-flash'];
+  const models = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
   let lastError = '';
 
   for (const model of models) {
@@ -172,17 +172,22 @@ const buildImageInstruction = (request: WorksheetRequest): string => {
 
   const ratioGuide =
     mode === 'visual_focus'
-      ? 'Ưu tiên sinh hình vẽ trực quan cho khoảng 40% - 60% số câu hỏi phù hợp (đặc biệt các bài đếm số lượng, nhận diện hình phẳng/hình khối, xem đồng hồ, sơ đồ đoạn thẳng, thiết bị máy tính, biểu tượng phần mềm, biển báo...).'
-      : 'Chỉ sinh hình vẽ minh họa (khoảng 2 đến 4 câu trong phiếu) tại những câu thực sự cần hình ảnh trực quan để học sinh quan sát và giải bài (ví dụ: hình học, đường gấp khúc, đo độ dài, xem đồng hồ, đếm đồ vật, nhận diện thiết bị/nút lệnh trong Tin học - Công nghệ, sơ đồ). Không vẽ hình cho các câu tính nhẩm hoặc lý thuyết thuần túy.';
+      ? 'Ưu tiên sinh hình vẽ trực quan cho khoảng 40% - 60% số câu hỏi phù hợp.'
+      : 'Chỉ sinh hình vẽ minh họa (khoảng 2 đến 4 câu trong phiếu) tại những câu thực sự cần hình ảnh trực quan để học sinh quan sát và giải bài. Không vẽ hình cho các câu tính nhẩm hoặc lý thuyết thuần túy.';
 
-  return `- QUY TẮC VẼ HÌNH MINH HỌA TRỰC QUAN BẰNG MÃ SVG:
+  return `- QUY TẮC SƯ PHẠM KHI VẼ HÌNH MINH HỌA TRỰC QUAN BẰNG MÃ SVG (BẮT BUỘC TUÂN THỦ):
   + ${ratioGuide}
-  + Khi câu hỏi có hình minh họa, hãy đặt khối mã \`\`\`svg ... \`\`\` ngay bên dưới dòng đề bài của câu hỏi đó (trước các phương án A, B, C, D hoặc dòng chấm trả lời).
-  + Quy chuẩn kỹ thuật bắt buộc cho mỗi khối \`\`\`svg:
-    1. Thẻ gốc phải ghi đầy đủ: <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 150" width="360" height="150"> (chiều cao có thể từ 140 đến 180 tùy nội dung), sử dụng nét vẽ rõ ràng (stroke="#1e293b" stroke-width="2"), màu sắc tươi sáng và tương phản cao để khi in trắng đen trên giấy A4 vẫn nhìn rõ nét.
-    2. Chữ viết hoặc số bên trong hình (nếu có) dùng font-family="Arial, sans-serif" font-size="13" font-weight="bold", có dấu tiếng Việt chuẩn, bố trí thoáng, không để chữ đè lên nét vẽ.
-    3. TUYỆT ĐỐI KHÔNG ghi sẵn đáp án đúng lộ ra bên trong hình vẽ ở phần Đề bài.
-    4. Đóng thẻ </svg> và đóng khối \`\`\` đầy đủ.`;
+  + Đặt khối mã \`\`\`svg ... \`\`\` ngay bên dưới dòng đề bài của câu hỏi đó.
+  + NGUYÊN TẮC LOGIC HÌNH ẢNH (TRÁNH GÂY NHẦM LẪN CHO HỌC SINH TIỂU HỌC):
+    1. TUYỆT ĐỐI CẤM vẽ các hình tròn trơn (<circle>) hoặc hình vuông trơn (<rect>) rồi gọi đó là quả táo, quả cam, bông hoa, con vật hay đồ vật thực tế!
+    2. Nếu câu hỏi yêu cầu đếm hoặc quan sát ĐỒ VẬT, HOA QUẢ, CON VẬT, ĐỒ DÙNG HỌC TẬP (ví dụ: quả táo, quả cam, bắp ngô, bông hoa, ngôi sao, bút chì, quyển sách, cái kẹo, con cá...):
+       - BẮT BUỘC dùng biểu tượng đồ họa trực quan trong thẻ <text font-size="26" text-anchor="middle">...</text> (ví dụ: 🍎 cho quả táo, 🍊 cho quả cam, 🌽 cho bắp ngô, 🌸 cho bông hoa, ⭐ cho ngôi sao, ✏️ cho bút chì, 📘 cho quyển vở, 🍬 cho cái kẹo, 🐟 cho con cá...) đặt trong các khung nhóm minh họa gọn gàng, HOẶC nếu vẽ bằng các hình khối thì đề bài BẮT BUỘC phải gọi đúng tên là "viên bi" hoặc "chấm tròn".
+    3. Nếu câu hỏi là HÌNH HỌC, ĐO LƯỜNG, ĐỒNG HỒ, SƠ ĐỒ ĐOẠN THẲNG:
+       - Hình phẳng / Đường gấp khúc: Vẽ chính xác bằng <polygon>, <rect>, <polyline>, ghi rõ tên đỉnh (A, B, C...) và số đo độ dài.
+       - Sơ đồ đoạn thẳng: Vẽ các đoạn thẳng có vạch giới hạn và nhãn tên rõ ràng.
+       - Mặt đồng hồ: Vẽ hình tròn, đủ số, kim giờ ngắn và kim phút dài chỉ đúng giờ.
+    4. Thẻ gốc phải ghi đầy đủ: <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 380 155" width="380" height="155">.
+    5. TUYỆT ĐỐI KHÔNG ghi sẵn tổng số đáp án đúng lộ ra bên trong hình vẽ ở phần Đề bài.`;
 };
 
 const buildVietnameseInstruction = (request: WorksheetRequest): string => {
