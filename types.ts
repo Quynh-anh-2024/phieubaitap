@@ -6,112 +6,232 @@ export enum GradeLevel {
   GRADE_5 = '5',
 }
 
-export const SUBJECTS_BY_GRADE: Record<GradeLevel, string[]> = {
-  [GradeLevel.GRADE_1]: ['Toán', 'Tiếng Việt', 'Tự nhiên và Xã hội', 'Đạo đức'],
-  [GradeLevel.GRADE_2]: ['Toán', 'Tiếng Việt', 'Tự nhiên và Xã hội', 'Đạo đức'],
-  [GradeLevel.GRADE_3]: ['Toán', 'Tiếng Việt', 'Tự nhiên và Xã hội', 'Đạo đức', 'Công nghệ', 'Tin học'],
-  [GradeLevel.GRADE_4]: ['Toán', 'Tiếng Việt', 'Đạo đức', 'Công nghệ', 'Tin học', 'Khoa học', 'Lịch sử và Địa lý'],
-  [GradeLevel.GRADE_5]: ['Toán', 'Tiếng Việt', 'Đạo đức', 'Công nghệ', 'Tin học', 'Khoa học', 'Lịch sử và Địa lý'],
-};
+export interface OptionItem<T extends string = string> {
+  value: T;
+  label: string;
+  description?: string;
+}
 
 export type ExerciseType =
-  | 'lesson_practice'
   | 'weekly_practice'
+  | 'quick_test'
   | 'review'
-  | 'quick_test';
+  | 'homework';
 
-export type StudentTarget = 'support' | 'standard' | 'good' | 'mixed';
-export type AnswerMode = 'short' | 'explain' | 'rubric';
-export type VietnameseScope = 'reading' | 'language' | 'writing' | 'comprehensive';
-export type ReadingSource =
-  | 'auto_new'
-  | 'old_textbook_style'
-  | 'folk_public'
-  | 'teacher_provided'
-  | 'verified_textbook_excerpt';
+export type StudentTarget =
+  | 'support'
+  | 'standard'
+  | 'mixed'
+  | 'advanced';
+
+export type AnswerMode =
+  | 'short'
+  | 'explain'
+  | 'detailed';
 
 export type QuestionFormat =
   | 'multiple_choice'
   | 'true_false'
   | 'fill_blank'
   | 'matching'
-  | 'ordering'
   | 'short_answer'
   | 'real_context'
   | 'error_finding'
   | 'creative';
 
-export interface OptionItem<T extends string> {
-  value: T;
-  label: string;
-  description?: string;
-}
+export type VietnameseScope =
+  | 'language'
+  | 'reading'
+  | 'comprehensive';
+
+export type ReadingSource =
+  | 'auto_new'
+  | 'old_textbook_style'
+  | 'teacher_provided'
+  | 'verified_textbook_excerpt';
+
+export type ImageMode =
+  | 'auto'
+  | 'visual_focus'
+  | 'none';
+
+export const SUBJECTS_BY_GRADE: Record<GradeLevel, string[]> = {
+  [GradeLevel.GRADE_1]: [
+    'Toán',
+    'Tiếng Việt',
+    'Tự nhiên và Xã hội',
+    'Đạo đức',
+    'Hoạt động trải nghiệm',
+    'Mĩ thuật',
+    'Tiếng Anh',
+  ],
+  [GradeLevel.GRADE_2]: [
+    'Toán',
+    'Tiếng Việt',
+    'Tự nhiên và Xã hội',
+    'Đạo đức',
+    'Hoạt động trải nghiệm',
+    'Mĩ thuật',
+    'Tiếng Anh',
+  ],
+  [GradeLevel.GRADE_3]: [
+    'Toán',
+    'Tiếng Việt',
+    'Tin học',
+    'Công nghệ',
+    'Tự nhiên và Xã hội',
+    'Đạo đức',
+    'Hoạt động trải nghiệm',
+    'Mĩ thuật',
+    'Tiếng Anh',
+  ],
+  [GradeLevel.GRADE_4]: [
+    'Toán',
+    'Tiếng Việt',
+    'Tin học',
+    'Công nghệ',
+    'Khoa học',
+    'Lịch sử và Địa lí',
+    'Đạo đức',
+    'Hoạt động trải nghiệm',
+    'Mĩ thuật',
+    'Tiếng Anh',
+  ],
+  [GradeLevel.GRADE_5]: [
+    'Toán',
+    'Tiếng Việt',
+    'Tin học',
+    'Công nghệ',
+    'Khoa học',
+    'Lịch sử và Địa lí',
+    'Đạo đức',
+    'Hoạt động trải nghiệm',
+    'Mĩ thuật',
+    'Tiếng Anh',
+  ],
+};
 
 export const EXERCISE_TYPE_OPTIONS: OptionItem<ExerciseType>[] = [
-  { value: 'lesson_practice', label: 'Củng cố sau bài học', description: 'Câu ngắn, bám sát kiến thức vừa học.' },
-  { value: 'weekly_practice', label: 'Luyện tập cuối tuần', description: 'Tổng hợp kiến thức, có câu kết nối thực tế.' },
-  { value: 'review', label: 'Ôn giữa kì/cuối kì', description: 'Bao quát chủ đề, có ma trận rõ ràng.' },
-  { value: 'quick_test', label: 'Kiểm tra nhanh', description: 'Ít câu, chấm nhanh, dùng đầu/cuối tiết.' },
+  {
+    value: 'weekly_practice',
+    label: 'Phiếu luyện tập tuần / bài học',
+    description: 'Củng cố kiến thức vừa học, cân đối các mức độ nhận thức.',
+  },
+  {
+    value: 'quick_test',
+    label: 'Kiểm tra nhanh (10 - 15 phút)',
+    description: 'Ngắn gọn, tập trung vào trọng tâm bài học để đánh giá nhanh.',
+  },
+  {
+    value: 'review',
+    label: 'Ôn tập chủ đề / Định kì',
+    description: 'Tổng hợp kiến thức theo giai đoạn, có phân hóa và ma trận đi kèm.',
+  },
+  {
+    value: 'homework',
+    label: 'Phiếu tự học / Cuối tuần',
+    description: 'Nhẹ nhàng, gắn với thực tế, có hướng dẫn để học sinh tự hoàn thành.',
+  },
 ];
 
 export const STUDENT_TARGET_OPTIONS: OptionItem<StudentTarget>[] = [
-  { value: 'support', label: 'Cần hỗ trợ', description: 'Câu ngắn, rõ, có mẫu/gợi ý, tránh đánh đố.' },
-  { value: 'standard', label: 'Đạt chuẩn', description: 'Bám sát yêu cầu cần đạt của bài học.' },
-  { value: 'mixed', label: 'Phân hóa cả lớp', description: 'Phiếu có nhiều tầng để học sinh nào cũng có phần phù hợp.' },
-  { value: 'good', label: 'Nâng cao', description: 'Tăng vận dụng, phân tích, giải thích và sáng tạo.' },
-];
-
-export const VIETNAMESE_SCOPE_OPTIONS: OptionItem<VietnameseScope>[] = [
-  { value: 'reading', label: 'Luyện đọc hiểu', description: 'Bài đọc và câu hỏi tìm hiểu nội dung, từ ngữ, suy luận.' },
-  { value: 'language', label: 'Luyện từ và câu', description: 'Tập trung từ ngữ, kiểu câu, dấu câu và sửa câu.' },
-  { value: 'writing', label: 'Luyện viết', description: 'Tập trung viết câu, đoạn hoặc bài ngắn đúng mức lớp.' },
-  { value: 'comprehensive', label: 'Tổng hợp Tiếng Việt', description: 'Kết hợp đọc hiểu, luyện từ và câu, viết.' },
+  {
+    value: 'mixed',
+    label: 'Phân hóa chung cả lớp',
+    description: 'Kết hợp câu cơ bản (Mức 1, 2) và câu vận dụng (Mức 3) cho toàn lớp.',
+  },
+  {
+    value: 'support',
+    label: 'Hỗ trợ học sinh còn chậm',
+    description: 'Câu lệnh ngắn, tường minh, chia nhỏ bước làm, ưu tiên nhận biết - thông hiểu.',
+  },
+  {
+    value: 'standard',
+    label: 'Chuẩn yêu cầu cần đạt',
+    description: 'Bám sát chuẩn kiến thức kĩ năng chương trình GDPT 2018.',
+  },
+  {
+    value: 'advanced',
+    label: 'Nâng cao & Phát triển năng lực',
+    description: 'Tăng cường bài toán có lời văn, tư duy logic, xử lý tình huống thực tiễn.',
+  },
 ];
 
 export const ANSWER_MODE_OPTIONS: OptionItem<AnswerMode>[] = [
-  { value: 'short', label: 'Chỉ đáp án', description: 'Ngắn gọn, phù hợp trắc nghiệm và chấm nhanh.' },
-  { value: 'explain', label: 'Đáp án + giải thích', description: 'Có lí do chọn đáp án, giúp học sinh tự sửa lỗi.' },
-  { value: 'rubric', label: 'Đáp án + hướng dẫn chấm', description: 'Có thang/gợi ý chấm cho tự luận và vận dụng.' },
+  {
+    value: 'explain',
+    label: 'Đáp án kèm giải thích chi tiết',
+    description: 'Có lời giải, giải thích ngắn gọn và lưu ý lỗi học sinh hay mắc.',
+  },
+  {
+    value: 'short',
+    label: 'Đáp án ngắn gọn (Chấm nhanh)',
+    description: 'Chỉ hiển thị kết quả và biểu điểm gợi ý để giáo viên đối chiếu nhanh.',
+  },
+  {
+    value: 'detailed',
+    label: 'Đáp án + Hướng dẫn sư phạm & PHHS',
+    description: 'Đầy đủ lời giải, phân tích lỗi sai phổ biến và gợi ý phối hợp phụ huynh.',
+  },
+];
+
+export const VIETNAMESE_SCOPE_OPTIONS: OptionItem<VietnameseScope>[] = [
+  {
+    value: 'language',
+    label: 'Luyện từ và câu / Chính tả / Viết đoạn',
+    description: 'Tập trung vào kiến thức tiếng Việt, từ ngữ, câu và thực hành viết ngắn.',
+  },
+  {
+    value: 'reading',
+    label: 'Đọc hiểu văn bản',
+    description: 'Gồm ngữ liệu đọc hiểu và hệ thống câu hỏi trắc nghiệm + tự luận bám sát bài đọc.',
+  },
+  {
+    value: 'comprehensive',
+    label: 'Tổng hợp (Đọc hiểu + Luyện từ và câu + Viết)',
+    description: 'Cấu trúc phiếu hoàn chỉnh gồm bài đọc, câu hỏi đọc hiểu, từ câu và viết.',
+  },
 ];
 
 export const READING_SOURCE_OPTIONS: OptionItem<ReadingSource>[] = [
   {
     value: 'auto_new',
-    label: 'Tự tạo văn bản mới',
-    description: 'AI tự biên soạn bài đọc mới, phù hợp lớp học và chủ đề, không sao chép văn bản có bản quyền.',
+    label: 'AI tự sáng tác ngữ liệu mới (An toàn bản quyền)',
+    description: 'Tự viết văn bản mới phù hợp lứa tuổi, trong sáng, giàu tính giáo dục.',
   },
   {
     value: 'old_textbook_style',
     label: 'Phong cách SGK cũ trước 2006',
-    description: 'Chỉ lấy phong cách trong sáng, gần gũi của ngữ liệu cũ; không sao chép nguyên văn từ sách/PDF trên mạng.',
-  },
-  {
-    value: 'folk_public',
-    label: 'Dân gian, đồng dao, ca dao',
-    description: 'Ưu tiên truyện dân gian, đồng dao, ca dao, tục ngữ phù hợp học sinh tiểu học.',
+    description: 'Văn phong giản dị, giàu hình ảnh quê hương, thiên nhiên, tình cảm gia đình, học đường.',
   },
   {
     value: 'teacher_provided',
-    label: 'Tự nhập bài đọc đã kiểm duyệt',
-    description: 'Giáo viên dán văn bản đọc hiểu cụ thể; app chỉ tạo câu hỏi theo Kết nối tri thức hiện hành.',
+    label: 'Giáo viên tự dán văn bản đã kiểm duyệt',
+    description: 'Sử dụng nguyên văn ngữ liệu do giáo viên cung cấp để ra câu hỏi.',
   },
   {
     value: 'verified_textbook_excerpt',
-    label: 'Trích từ SGK cũ đã kiểm duyệt',
-    description: 'Giáo viên dán nguyên văn bài đọc và điền SGK lớp/năm xuất bản; app mới được ghi dòng “Trích từ...”.',
+    label: 'Bài đọc trích từ SGK cũ (Có ghi rõ nguồn)',
+    description: 'Dùng văn bản giáo viên dán và tự động gắn dòng trích nguồn SGK lớp/năm xuất bản.',
   },
 ];
 
-export const QUESTION_FORMAT_OPTIONS: OptionItem<QuestionFormat>[] = [
-  { value: 'multiple_choice', label: 'Trắc nghiệm' },
-  { value: 'true_false', label: 'Đúng/Sai' },
-  { value: 'fill_blank', label: 'Điền khuyết' },
-  { value: 'matching', label: 'Nối' },
-  { value: 'ordering', label: 'Sắp xếp thứ tự' },
-  { value: 'short_answer', label: 'Tự luận ngắn' },
-  { value: 'real_context', label: 'Tình huống thực tế' },
-  { value: 'error_finding', label: 'Phát hiện lỗi sai' },
-  { value: 'creative', label: 'Sáng tạo/mở rộng' },
+export const IMAGE_MODE_OPTIONS: OptionItem<ImageMode>[] = [
+  {
+    value: 'auto',
+    label: 'AI tự minh họa câu phù hợp (Khuyên dùng)',
+    description: 'Chỉ vẽ hình (SVG) cho các câu cần trực quan: đếm vật, hình học, đồng hồ, biểu tượng/thiết bị...',
+  },
+  {
+    value: 'visual_focus',
+    label: 'Ưu tiên nhiều hình trực quan (Lớp 1 - 3)',
+    description: 'Tăng cường hình vẽ minh họa sinh động cho các bài tập nhận biết, đếm số lượng, nối hình.',
+  },
+  {
+    value: 'none',
+    label: 'Không tự vẽ (Giáo viên tự chèn sau)',
+    description: 'AI chỉ tạo văn bản; thầy/cô có thể bấm chèn hoặc dán ảnh (Ctrl+V) vào từng câu ở bước xem phiếu.',
+  },
 ];
 
 export interface WorksheetRequest {
@@ -124,8 +244,9 @@ export interface WorksheetRequest {
   questionCount: number;
   answerMode: AnswerMode;
   preferredFormats: QuestionFormat[];
-  includeMatrix: boolean;
-  includeLocalContext: boolean;
+  imageMode?: ImageMode;
+  includeMatrix?: boolean;
+  includeLocalContext?: boolean;
   vietnameseScope?: VietnameseScope;
   readingSource?: ReadingSource;
   readingText?: string;
@@ -136,8 +257,4 @@ export interface WorksheetRequest {
   readingLessonTitle?: string;
   readingCitationLine?: string;
   lockReadingSource?: boolean;
-}
-
-export interface WorksheetResponse {
-  content: string;
 }
